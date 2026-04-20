@@ -8,8 +8,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.Collections;
-import java.util.Vector;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -129,7 +128,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
          fontSize=size;
       }
       final var diff=Math.abs(Math.round(fontSize) - fontSize);
-      if (new Font(fontFamily, fontStyle.nr, Math.round(fontSize)) instanceof Font font)
+      if (new Font(fontFamily, fontStyle.nr, Math.round(fontSize)) instanceof final Font font)
          fontFont=(diff <= 0.02f) ? font : font.deriveFont(fontSize);
       getMustertext().setFont(fontFont);
       SwingUtilities.invokeLater(
@@ -139,19 +138,14 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
     * @return fontFamily
     */
    @SuppressWarnings("null")
-   @NonNull
    JComboBox<String> getComboBoxFamily() {
       if (comboBoxFamily == null) {
-         @NonNull
-         final String[] fontFamilies=GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
-         @NonNull
-         final Vector<String> families=new Vector<>();
-         Collections.addAll(families, fontFamilies);
-         comboBoxFamily=new JComboBox<>(families);
+         comboBoxFamily=new JComboBox<>(new Vector<String>(
+                  Arrays.asList(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames())));
          // if (fontFamily==null)fontFamily="Arial";
          fontFamily=getPreferences().get(TAG_FONTFAMILY, fontFamily);
          // System.out.println("Fam:get " + getPreferences().get("FONTFAMILY", fontFamily));
-         comboBoxFamily.addActionListener(e -> {
+         comboBoxFamily.addActionListener(_ -> {
             // System.out.println("Action " + e.getActionCommand() + getComboBoxFamily().getSelectedItem());
             setFont((String) getComboBoxFamily().getSelectedItem(), fontSize, fontStyle);
             getPreferences().put(TAG_FONTFAMILY, fontFamily);
@@ -172,14 +166,10 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    }
    private JComboBox<STYLE> getComboBoxStyle() {
       if (comboBoxStyle == null) {
-         final Vector<STYLE> v=new Vector<>();
-         Collections.addAll(v, STYLE.values());
-         comboBoxStyle=new JComboBox<>(v);
+         comboBoxStyle=new JComboBox<>(new Vector<STYLE>(Arrays.asList(STYLE.values())));
          comboBoxStyle.addActionListener(e -> {
             System.out.println(TEXT_ACTION + e.getActionCommand() + getComboBoxStyle().getSelectedItem());
-            @Nullable
-            final Object styleObj=getComboBoxStyle().getSelectedItem();
-            if (styleObj instanceof final STYLE style)
+            if (getComboBoxStyle().getSelectedItem() instanceof final STYLE style)
                setFont(fontFamily, fontSize, style);
          });
          comboBoxStyle.setMinimumSize(new Dimension(200, 28));
@@ -191,9 +181,9 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
       if (integerView == null) {
          integerView=new IntegerView();
          integerView.setModel(new SpinnerNumberModel(0, -50, 100, 1));
-         final Fontauswahl me=this;
-         integerView.addChangeListener(e -> EventQueue.invokeLater(() -> {
-            final String fontStretch=Double.toString(me.getStretch());
+         final var me=this;
+         integerView.addChangeListener(_ -> SwingUtilities.invokeLater(() -> {
+            final var fontStretch=Double.toString(me.getStretch());
             System.out.println("stretch=" + fontStretch);
             getMustertext().repaint(100);
             getPreferences().put(TAG_FONTSTRECH, fontStretch);
@@ -207,8 +197,6 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
       }
       return integerView;
    }
-   @SuppressWarnings("null")
-   @NonNull
    private JLabel getLblFamily() {
       if (lblFamily == null) {
          lblFamily=new JLabel("FontFamily:");
@@ -216,8 +204,6 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
       }
       return lblFamily;
    }
-   @SuppressWarnings("null")
-   @NonNull
    private JLabel getLblSize() {
       if (lblSize == null) {
          lblSize=new JLabel("Size:");
@@ -248,13 +234,13 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
             static private final long serialVersionUID=3166086304017612018L;
             @Override
             protected void paintComponent(Graphics g) {
-               final Graphics2D g2=(Graphics2D) g;
+               final var g2=(Graphics2D) g;
                g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-               final double f=getStretch();
-               if (f != 1d) {
-                  final double s=getWidth() / 2d;
+               final var dbl=getStretch();
+               if (dbl != 1d) {
+                  final var s=getWidth() / 2d;
                   g2.translate(s, 0);
-                  g2.scale(f, 1);
+                  g2.scale(dbl, 1);
                   g2.translate(-s, 0);
                }
                super.paintComponent(g);
@@ -270,11 +256,11 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    private JPanel getPanel() {
       if (panel == null) {
          panel=new JPanel();
-         final GridBagLayout gbl_panel=new GridBagLayout();
+         final var gbl_panel=new GridBagLayout();
          gbl_panel.rowWeights=new double[] {0.0, 0.0};
          gbl_panel.columnWeights=new double[] {1.0, 1.0, 1.0, 1.0};
          panel.setLayout(gbl_panel);
-         final GridBagConstraints gbc_lblFontfamily=new GridBagConstraints();
+         final var gbc_lblFontfamily=new GridBagConstraints();
          // gbc_lblFontfamily.weightx=0.2;
          gbc_lblFontfamily.fill=GridBagConstraints.HORIZONTAL;
          gbc_lblFontfamily.anchor=GridBagConstraints.WEST;
@@ -282,7 +268,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
          gbc_lblFontfamily.gridx=0;
          gbc_lblFontfamily.gridy=0;
          panel.add(getLblFamily(), gbc_lblFontfamily);
-         final GridBagConstraints gbc_lblSize=new GridBagConstraints();
+         final var gbc_lblSize=new GridBagConstraints();
          // gbc_lblSize.weightx=0.4;
          gbc_lblSize.fill=GridBagConstraints.HORIZONTAL;
          gbc_lblSize.anchor=GridBagConstraints.WEST;
@@ -290,7 +276,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
          gbc_lblSize.gridx=1;
          gbc_lblSize.gridy=0;
          panel.add(getLblSize(), gbc_lblSize);
-         final GridBagConstraints gbc_lblStyle=new GridBagConstraints();
+         final var gbc_lblStyle=new GridBagConstraints();
          // gbc_lblStyle.weightx=0.3;
          gbc_lblStyle.fill=GridBagConstraints.HORIZONTAL;
          gbc_lblStyle.anchor=GridBagConstraints.WEST;
@@ -298,34 +284,34 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
          gbc_lblStyle.gridx=2;
          gbc_lblStyle.gridy=0;
          panel.add(getLblStyle(), gbc_lblStyle);
-         final GridBagConstraints gbc_lblStretch=new GridBagConstraints();
+         final var gbc_lblStretch=new GridBagConstraints();
          gbc_lblStretch.fill=GridBagConstraints.HORIZONTAL;
          gbc_lblStretch.anchor=GridBagConstraints.WEST;
          gbc_lblStretch.insets=new Insets(0, 0, 5, 5);
          gbc_lblStretch.gridx=3;
          gbc_lblStretch.gridy=0;
          panel.add(getLblStretch(), gbc_lblStretch);
-         final GridBagConstraints gbc_comboBoxFontFamily=new GridBagConstraints();
+         final var gbc_comboBoxFontFamily=new GridBagConstraints();
          gbc_comboBoxFontFamily.fill=GridBagConstraints.HORIZONTAL;
          gbc_comboBoxFontFamily.anchor=GridBagConstraints.EAST;
          gbc_comboBoxFontFamily.insets=new Insets(0, 5, 0, 5);
          gbc_comboBoxFontFamily.gridx=0;
          gbc_comboBoxFontFamily.gridy=1;
          panel.add(getComboBoxFamily(), gbc_comboBoxFontFamily);
-         final GridBagConstraints gbc_spinnerSize=new GridBagConstraints();
+         final var gbc_spinnerSize=new GridBagConstraints();
          gbc_spinnerSize.fill=GridBagConstraints.HORIZONTAL;
          gbc_spinnerSize.anchor=GridBagConstraints.EAST;
          gbc_spinnerSize.insets=new Insets(0, 5, 0, 5);
          gbc_spinnerSize.gridx=1;
          gbc_spinnerSize.gridy=1;
          panel.add(getSpinnerSize(), gbc_spinnerSize);
-         final GridBagConstraints gbc_comboBoxStyle=new GridBagConstraints();
+         final var gbc_comboBoxStyle=new GridBagConstraints();
          gbc_comboBoxStyle.fill=GridBagConstraints.HORIZONTAL;
          gbc_comboBoxStyle.insets=new Insets(0, 5, 0, 5);
          gbc_comboBoxStyle.gridx=2;
          gbc_comboBoxStyle.gridy=1;
          panel.add(getComboBoxStyle(), gbc_comboBoxStyle);
-         final GridBagConstraints gbc_integerView=new GridBagConstraints();
+         final var gbc_integerView=new GridBagConstraints();
          gbc_integerView.insets=new Insets(0, 5, 0, 0);
          gbc_integerView.fill=GridBagConstraints.HORIZONTAL;
          gbc_integerView.anchor=GridBagConstraints.EAST;
@@ -368,8 +354,8 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
          synchronized (fontFamily) {
             fontSize=getPreferences().getFloat(TAG_FONTSIZE, fontSize);
          }
-         spinnerSize.addChangeListener(changeEvent -> {
-            final Object value=getSpinnerSize().getValue();
+         spinnerSize.addChangeListener(_ -> {
+            final var value=getSpinnerSize().getValue();
             System.out.println(TEXT_ACTION + value + value.getClass());
             if (value instanceof final Integer i)
                setFont(fontFamily, i, fontStyle);
