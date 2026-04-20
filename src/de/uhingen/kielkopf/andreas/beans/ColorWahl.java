@@ -6,7 +6,7 @@ import javax.swing.*;
 
 /**
  * JPanel mit Elementen zur Auswahl einer Farbe
- * 
+ *
  * @author Andreas Kielkopf
  *
  */
@@ -65,7 +65,7 @@ public class ColorWahl extends JPanel {
          slider.setMajorTickSpacing(20);
          slider.setMaximum(255);
          slider.setValue(red);
-         slider.addChangeListener(e -> {
+         slider.addChangeListener(_ -> {
             red=slider.getValue();
             setColor();
          });
@@ -83,7 +83,7 @@ public class ColorWahl extends JPanel {
          slider_1.setPaintLabels(true);
          slider_1.setMaximum(255);
          slider_1.setValue(green);
-         slider_1.addChangeListener(e -> {
+         slider_1.addChangeListener(_ -> {
             green=slider_1.getValue();
             setColor();
          });
@@ -101,7 +101,7 @@ public class ColorWahl extends JPanel {
          slider_2.setPaintLabels(true);
          slider_2.setMaximum(255);
          slider_2.setValue(blue);
-         slider_2.addChangeListener(e -> {
+         slider_2.addChangeListener(_ -> {
             blue=slider_2.getValue();
             setColor();
          });
@@ -119,7 +119,7 @@ public class ColorWahl extends JPanel {
          slider_3.setForeground(Color.BLACK);
          slider_3.setMaximum(255);
          slider_3.setValue(white);
-         slider_3.addChangeListener(e -> {
+         slider_3.addChangeListener(_ -> {
             white=slider_3.getValue();
             setColor();
          });
