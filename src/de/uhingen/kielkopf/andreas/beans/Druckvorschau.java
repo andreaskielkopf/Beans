@@ -5,12 +5,11 @@ package de.uhingen.kielkopf.andreas.beans;
 
 import java.awt.BorderLayout;
 import java.awt.print.*;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.Vector;
 
 import javax.print.PrintService;
 import javax.print.attribute.HashPrintRequestAttributeSet;
-import javax.print.attribute.PrintRequestAttributeSet;
 import javax.print.attribute.standard.Copies;
 import javax.swing.*;
 
@@ -21,13 +20,6 @@ import org.eclipse.jdt.annotation.NonNull;
  *
  */
 public class Druckvorschau extends JPanel {
-   private enum Horizontal {
-      LINKS, MITTE, RECHTS
-   }
-
-   private enum Vertikal {
-      OBEN, MITTE, UNTEN
-   }
    static private final long       serialVersionUID=-5880307937617186718L;
    private JButton                 btnPrint;
    private Printable               printable;
@@ -52,16 +44,33 @@ public class Druckvorschau extends JPanel {
       add(getPanel_1(), BorderLayout.CENTER);
       add(getPanel_2(), BorderLayout.SOUTH);
    }
+   private enum Horizontal {
+      LINKS, MITTE, RECHTS
+   }
+
+   private enum Vertikal {
+      OBEN, MITTE, UNTEN
+   }
+   /**
+    * Übergibt das Element das gedruckt werden soll
+    *
+    * @param vorschau
+    *           das Element das gedruckt werden soll (zur Vorschau)
+    */
+   public void setPrintable(Printable vorschau) {
+      printable=vorschau;
+      getBtnPrint().setEnabled(printable != null);
+   }
    /**
     * Knopf um den Druck auszulösen
-    * 
+    *
     * @return button
     */
    JButton getBtnPrint() {
       if (btnPrint == null) {
          btnPrint=new JButton("Print");
          btnPrint.setEnabled(false);
-         btnPrint.addActionListener(e -> {
+         btnPrint.addActionListener(_ -> {
             try {
                print();
             } catch (final PrinterException ignore) {
@@ -73,7 +82,7 @@ public class Druckvorschau extends JPanel {
    }
    /**
     * Auswahl der Horizontalen Ausrichtung
-    * 
+    *
     * @return auswahlH
     */
    @SuppressWarnings({"unchecked", "rawtypes", "null"})
@@ -81,7 +90,7 @@ public class Druckvorschau extends JPanel {
    JComboBox<Horizontal> getComboBoxHorizontal() {
       if (comboBoxHorizontal == null) {
          comboBoxHorizontal=new JComboBox(Horizontal.values());
-         comboBoxHorizontal.addActionListener(e -> getPaperPanel().setPos(getComboBoxVertikal().getSelectedIndex() - 1,
+         comboBoxHorizontal.addActionListener(_ -> getPaperPanel().setPos(getComboBoxVertikal().getSelectedIndex() - 1,
                   getComboBoxHorizontal().getSelectedIndex() - 1));
          comboBoxHorizontal.setSelectedItem(Horizontal.MITTE);
       }
@@ -89,7 +98,7 @@ public class Druckvorschau extends JPanel {
    }
    /**
     * Auswahl des Papierformats
-    * 
+    *
     * @return auswahlP
     */
    JComboBox<String> getComboBoxPapier() {
@@ -102,29 +111,18 @@ public class Druckvorschau extends JPanel {
    }
    /**
     * Auswahl des Druckers
-    * 
+    *
     * @return auswahlD
     */
    JComboBox<PrintService> getComboBoxPrinter() {
       if (comboBoxPrinter == null) {
-         final PrintService[] ps=PrinterJob.lookupPrintServices();
-         final Vector<PrintService> s=new Vector<>();
-         Collections.addAll(s, ps);
-         comboBoxPrinter=new JComboBox<>(s);
-         // comboBoxPrinter.addActionListener(e -> {
-         // final Object o=getComboBoxPrinter().getSelectedItem();
-         // if (o instanceof PrintService ps1) {
-         // CUPSPrinter2 cp = new CUPSPrinter2(ps1.getName());
-         // ArrayList<String> mtn = cp.getMediaSizeTextNames();
-         // getComboBoxPapier().setModel(new DefaultComboBoxModel<String>((String[]) mtn.toArray()));
-         // }
-         // });
+         comboBoxPrinter=new JComboBox<>(new Vector<>(Arrays.asList(PrinterJob.lookupPrintServices())));
       }
       return comboBoxPrinter;
    }
    /**
     * Auswahl der vertikalen Ausrichtung
-    * 
+    *
     * @return auswahlV
     */
    @SuppressWarnings({"unchecked", "rawtypes", "null"})
@@ -132,11 +130,69 @@ public class Druckvorschau extends JPanel {
    JComboBox<Vertikal> getComboBoxVertikal() {
       if (comboBoxVertikal == null) {
          comboBoxVertikal=new JComboBox(Vertikal.values());
-         comboBoxVertikal.addActionListener(e -> getPaperPanel().setPos(getComboBoxVertikal().getSelectedIndex() - 1,
+         comboBoxVertikal.addActionListener(_ -> getPaperPanel().setPos(getComboBoxVertikal().getSelectedIndex() - 1,
                   getComboBoxHorizontal().getSelectedIndex() - 1));
          comboBoxVertikal.setSelectedItem(Vertikal.OBEN);
       }
       return comboBoxVertikal;
+   }
+   /**
+    * Auswahl der Skalierung des printable
+    *
+    * @return auswahlS
+    */
+   IntegerView getSkalierung() {
+      if (skalierung == null) {
+         skalierung=new IntegerView();
+         skalierung.setModel(new SpinnerNumberModel(0, -50, 100, 1));
+         skalierung.setEinheit("%");
+         skalierung.setText("stretch");
+      }
+      return skalierung;
+   }
+   /**
+    * Versucht den Ausdruck zu starten
+    *
+    * @throws PrinterException
+    *            Abbruch des Drucks
+    */
+   protected void print() throws PrinterException {
+      if (printable == null)
+         return;
+      final var printjob=PrinterJob.getPrinterJob(); // Der Printjob. der nacher die Arbeit macht
+      if (getComboBoxPrinter().getSelectedItem() instanceof final PrintService ps)
+         printjob.setPrintService(ps);
+      final var paper=new Paper(); // Das im Drucker verwendete Papier
+      final Double papierBreite=(210 * 72) / 25.4d, papierHoehe=(297 * 72) / 25.4d;
+      final Double plakettenBreite=(52 * 72) / 25.4d, plakettenHoehe=(82 * 72) / 25.4d;
+      paper.setSize(papierBreite, papierHoehe); // Das ist A4
+      // Und jetzt welchen Bereich soll man denn bedrucken
+      Double X=0d, Y=0d;
+      if (getComboBoxHorizontal().getSelectedItem() instanceof final Horizontal h)
+         X=switch (h) {
+            case LINKS -> 0d;
+            case MITTE -> (papierBreite - plakettenBreite) / 2;
+            case RECHTS -> papierBreite - plakettenBreite;
+         };
+      if (getComboBoxVertikal().getSelectedItem() instanceof final Vertikal v)
+         Y=switch (v) {
+            case OBEN -> 0d;
+            case MITTE -> (papierHoehe - plakettenHoehe) / 2;
+            case UNTEN -> papierHoehe - plakettenHoehe;
+         };
+      paper.setImageableArea(X, Y, plakettenBreite, plakettenHoehe);
+      final var pageformat=new PageFormat();
+      pageformat.setPaper(paper);
+      pageformat.setOrientation(PageFormat.LANDSCAPE);
+      printjob.setPrintable(printable, pageformat);
+      printjob.setCopies(1);
+      printjob.setJobName("Kongressplakette");
+      final var attr_set=new HashPrintRequestAttributeSet();
+      // MediaSizeName msn = MediaSize.findMedia(82, 52, MediaSize.MM);
+      // MediaSizeName msn = MediaSize.ISO.A5.getMediaSizeName();
+      // attr_set.add(msn);
+      attr_set.add(new Copies(1));
+      printjob.print(attr_set);
    }
    @SuppressWarnings("null")
    @NonNull
@@ -201,77 +257,5 @@ public class Druckvorschau extends JPanel {
       if (paperPanel == null)
          paperPanel=new PaperPanel("Andreas Kielkopf", "Uhingen");
       return paperPanel;
-   }
-   /**
-    * Versucht den Ausdruck zu starten
-    * 
-    * @throws PrinterException
-    *            Abbruch des Drucks
-    */
-   protected void print() throws PrinterException {
-      if (printable == null)
-         return;
-      final PrinterJob job=PrinterJob.getPrinterJob(); // Der Printjob. der nacher die Arbeit macht
-      Object o=getComboBoxPrinter().getSelectedItem();
-      if (o instanceof PrintService ps)
-         job.setPrintService(ps);
-      final Paper paper=new Paper(); // Das im Drucker verwendete Papier
-      final Double papierBreite=(210 * 72) / 25.4d, papierHoehe=(297 * 72) / 25.4d;
-      final Double plakettenBreite=(52 * 72) / 25.4d, plakettenHoehe=(82 * 72) / 25.4d;
-      paper.setSize(papierBreite, papierHoehe); // Das ist A4
-      // Und jetzt welchen Bereich soll man denn bedrucken
-      Double X=0d, Y=0d;
-      o=getComboBoxHorizontal().getSelectedItem();
-      if (o instanceof Horizontal h)
-         X=switch (h) {
-            case LINKS -> 0d;
-            case MITTE -> (papierBreite - plakettenBreite) / 2;
-            case RECHTS -> papierBreite - plakettenBreite;
-         };
-      o=getComboBoxVertikal().getSelectedItem();
-      if (o instanceof Vertikal v)
-         Y=switch (v) {
-            case OBEN -> 0d;
-            case MITTE -> (papierHoehe - plakettenHoehe) / 2;
-            case UNTEN -> papierHoehe - plakettenHoehe;
-         };
-      paper.setImageableArea(X, Y, plakettenBreite, plakettenHoehe);
-      final PageFormat format=new PageFormat();
-      format.setPaper(paper);
-      format.setOrientation(PageFormat.LANDSCAPE);
-      job.setPrintable(printable, format);
-      job.setCopies(1);
-      job.setJobName("Kongressplakette");
-      final PrintRequestAttributeSet attr_set=new HashPrintRequestAttributeSet();
-      // MediaSizeName msn = MediaSize.findMedia(82, 52, MediaSize.MM);
-      // MediaSizeName msn = MediaSize.ISO.A5.getMediaSizeName();
-      // attr_set.add(msn);
-      attr_set.add(new Copies(1));
-      job.print(attr_set);
-   }
-   /**
-    * Übergibt das Element das gedruckt werden soll
-    * 
-    * @param vorschau
-    *           das Element das gedruckt werden soll (zur Vorschau)
-    */
-   public void setPrintable(Printable vorschau) {
-      printable=vorschau;
-      getBtnPrint().setEnabled(printable != null);
-   }
-   /**
-    * Auswahl der Skalierung des printable
-    * 
-    * @return auswahlS
-    */
-   IntegerView getSkalierung() {
-      if (skalierung == null) {
-         skalierung=new IntegerView();
-         // integerView.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 5));
-         skalierung.setModel(new SpinnerNumberModel(0, -50, 100, 1));
-         skalierung.setEinheit("%");
-         skalierung.setText("stretch");
-      }
-      return skalierung;
    }
 }
