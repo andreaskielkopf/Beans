@@ -8,7 +8,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Vector;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -140,7 +141,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    @SuppressWarnings("null")
    JComboBox<String> getComboBoxFamily() {
       if (comboBoxFamily == null) {
-         comboBoxFamily=new JComboBox<>(new Vector<String>(
+         comboBoxFamily=new JComboBox<>(new Vector<>(
                   Arrays.asList(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames())));
          // if (fontFamily==null)fontFamily="Arial";
          fontFamily=getPreferences().get(TAG_FONTFAMILY, fontFamily);
@@ -166,7 +167,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    }
    private JComboBox<STYLE> getComboBoxStyle() {
       if (comboBoxStyle == null) {
-         comboBoxStyle=new JComboBox<>(new Vector<STYLE>(Arrays.asList(STYLE.values())));
+         comboBoxStyle=new JComboBox<>(new Vector<>(Arrays.asList(STYLE.values())));
          comboBoxStyle.addActionListener(e -> {
             System.out.println(TEXT_ACTION + e.getActionCommand() + getComboBoxStyle().getSelectedItem());
             if (getComboBoxStyle().getSelectedItem() instanceof final STYLE style)
