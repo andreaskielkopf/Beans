@@ -36,9 +36,7 @@ public class CountingPipe {
    /** Der virtuelle Thread, der das macht */
    final public Thread              t;
    /** Flaf für die Fertigmeldung */
-   final public AtomicBoolean       fertig=new AtomicBoolean();
-   // public Info infoIn;
-   // public Info infoOut;
+   final public AtomicBoolean       fertig=new AtomicBoolean(false);
    /**
     * @param in
     * @param out
@@ -48,12 +46,10 @@ public class CountingPipe {
     *
     */
    @SuppressWarnings("resource")
-   public CountingPipe(Process in, Process out, ErrorSink sink) throws IOException {
+   public CountingPipe(Process in, Process out, ErrorSink sink, int kBlocksize) throws IOException {
       sink.add(in.errorReader(StandardCharsets.UTF_8));
-      // infoIn=in.info();
       sink.add(out.errorReader(StandardCharsets.UTF_8));
-      // infoOut=out.info();
-      this(in.getInputStream(), out.getOutputStream(), 1024); // 1MB
+      this(in.getInputStream(), out.getOutputStream(), kBlocksize); // 1MB
    }
    /**
     * @param in
@@ -80,15 +76,13 @@ public class CountingPipe {
                b=System.nanoTime();
                wPos.addAndGet(r); // Positionen sind gleich
                wTime.addAndGet(b - a); // Schreibzeit
-               // Thread.sleep(1);
+               Thread.sleep(1);
             }
             out.flush();
             wTime.addAndGet(System.nanoTime() - b); // Schreibzeit
             fertig.set(true);
-         } catch (final IOException e) {
+         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
-            // } catch (InterruptedException e) {
-            // e.printStackTrace();
          }
       });
    }
