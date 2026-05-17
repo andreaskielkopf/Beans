@@ -25,7 +25,6 @@ import javax.swing.border.BevelBorder;
 import javax.swing.border.EmptyBorder;
 
 import org.eclipse.jdt.annotation.NonNull;
-import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * @author andreas
@@ -86,7 +85,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
       return getIntegerView().getValue() instanceof final Number n ? 1d + n.doubleValue() / 100d : 1d;
    }
    /*
-    * 
+    *
     */
    @Override
    public void propertyChange(PropertyChangeEvent evt) {
@@ -111,7 +110,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
     *           Stil-Auswahl aus Font.PLAIN, BOLD, ITALIC, or BOLD+ITALIC.
     */
    public void setFont(String familie_, float size, STYLE style_) {
-      if (familie_ instanceof String familie && !familie.isBlank() && style_ instanceof STYLE style && size >= 0.01f) {
+      if (familie_ instanceof final String familie && !familie.isBlank() && style_ instanceof final STYLE style && size >= 0.01f) {
          final var isSameSize=Math.abs(size - fontSize) < 0.001f;
          if (familie.equalsIgnoreCase(fontFamily) && style.equals(fontStyle) && isSameSize)
             return;
@@ -130,14 +129,14 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    }
    /**
     * ComboBox mit allen Fonts auf dem System
-    * 
+    *
     * @return fontFamily
     */
    JComboBox<String> getComboBoxFamily() {
       if (comboBoxFamily == null) {
          comboBoxFamily=new JComboBox<>(/* new Vector<>( Arrays.asList( */ GraphicsEnvironment
                   .getLocalGraphicsEnvironment().getAvailableFontFamilyNames()/* )) */);
-         if (getPreferences().get(TAG_FONTFAMILY, fontFamily) instanceof String s)
+         if (getPreferences().get(TAG_FONTFAMILY, fontFamily) instanceof final String s)
             setFont(s, fontSize, fontStyle);
          comboBoxFamily.addActionListener(_ -> {
             setFont((String) getComboBoxFamily().getSelectedItem(), fontSize, fontStyle);
