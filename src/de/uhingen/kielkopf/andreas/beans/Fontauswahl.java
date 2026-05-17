@@ -14,7 +14,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
-import javax.swing.*;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.EmptyBorder;
 
@@ -27,7 +33,6 @@ import org.eclipse.jdt.annotation.Nullable;
  */
 public class Fontauswahl extends JPanel implements PropertyChangeListener {
    static private final long                             serialVersionUID=-1221877930226284285L;
-   static private final String                           TEXT_ACTION     ="Action ";
    static private final String                           TAG_FONTFAMILY  ="FONTFAMILY";
    static private final String                           TAG_FONTSTRECH  ="FONTSTRECH";
    static private final String                           TAG_FONTSIZE    ="FONTSIZE";
@@ -44,13 +49,6 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    private JLabel                                        lblStyle;
    private JPanel                                        panel;
    private Preferences                                   preferences;
-   // @Override
-   /*
-    * public void setFont(Font font) { if (font == null) return; fontFont = font; fontFamily = font.getFamily();
-    * getComboBoxFamily().setSelectedItem(fontFamily); fontSize = font.getSize2D(); getSpinnerSize().setValue(fontSize); fontStyle = font.getStyle();
-    * getComboBoxStyle().setSelectedItem(fontStyle); getMustertext().setFont(font); fireActionPerformed(new ActionEvent(this,
-    * ActionEvent.ACTION_PERFORMED, "Font changed")); }
-    */
    private transient CopyOnWriteArraySet<ActionListener> actionListeners =new CopyOnWriteArraySet<>();
    private IntegerView                                   integerView;
    private JLabel                                        lblNewLabel;
@@ -77,29 +75,24 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    }
    @Override
    public Font getFont() {
-      if (fontFont == null) {
+      if (fontFont == null)
          fontFont=super.getFont();
-      }
       return fontFont;
    }
    /**
     * @return Scalefaktor 0.01f bis 1.99f
     */
    public double getStretch() {
-      if (getIntegerView().getValue() instanceof final Number n)
-         return 1d + (n.doubleValue() / 100d);
-      return 1d;
+      return getIntegerView().getValue() instanceof final Number n ? 1d + n.doubleValue() / 100d : 1d;
    }
    /*
-    * @Override public void update(Observable o, Object arg) { if (arg instanceof Color c) { getMustertext().setForeground(c); observable.fire(arg); }
-    * }
+    * 
     */
    @Override
    public void propertyChange(PropertyChangeEvent evt) {
       if (evt.getNewValue() instanceof final Color c) {
          getMustertext().setForeground(c);
          firePropertyChange(evt.getPropertyName(), evt.getOldValue(), evt.getNewValue());
-         // observable.fire(arg);
       }
    }
    /**
@@ -117,44 +110,41 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
     * @param style
     *           Stil-Auswahl aus Font.PLAIN, BOLD, ITALIC, or BOLD+ITALIC.
     */
-   public void setFont(@Nullable String familiy, float size, STYLE style) {
-      if ((familiy == null) || familiy.isEmpty() || (style == null) || (size <= 0.01f))
-         return;
-      final var isSameSize=(Math.abs(size - fontSize) < 0.001f);
-      if (familiy.equalsIgnoreCase(fontFamily) && style.equals(fontStyle) && isSameSize)
-         return;
-      synchronized (fontFamily) {
-         fontFamily=familiy;
-         fontStyle=style;
-         fontSize=size;
+   public void setFont(String familie_, float size, STYLE style_) {
+      if (familie_ instanceof String familie && !familie.isBlank() && style_ instanceof STYLE style && size >= 0.01f) {
+         final var isSameSize=Math.abs(size - fontSize) < 0.001f;
+         if (familie.equalsIgnoreCase(fontFamily) && style.equals(fontStyle) && isSameSize)
+            return;
+         synchronized (fontFamily) {
+            fontFamily=familie;
+            fontStyle=style;
+            fontSize=size;
+         }
+         final var diff=Math.abs(Math.round(fontSize) - fontSize);
+         if (new Font(fontFamily, fontStyle.nr, Math.round(fontSize)) instanceof final Font font)
+            fontFont=diff <= 0.02f ? font : font.deriveFont(fontSize);
+         getMustertext().setFont(fontFont);
+         SwingUtilities.invokeLater(
+                  () -> fireActionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "Font changed")));
       }
-      final var diff=Math.abs(Math.round(fontSize) - fontSize);
-      if (new Font(fontFamily, fontStyle.nr, Math.round(fontSize)) instanceof final Font font)
-         fontFont=(diff <= 0.02f) ? font : font.deriveFont(fontSize);
-      getMustertext().setFont(fontFont);
-      SwingUtilities.invokeLater(
-               () -> fireActionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "Font changed")));
    }
    /**
+    * ComboBox mit allen Fonts auf dem System
+    * 
     * @return fontFamily
     */
-   @SuppressWarnings("null")
    JComboBox<String> getComboBoxFamily() {
       if (comboBoxFamily == null) {
-         comboBoxFamily=new JComboBox<>(new Vector<>(
-                  Arrays.asList(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames())));
-         // if (fontFamily==null)fontFamily="Arial";
-         fontFamily=getPreferences().get(TAG_FONTFAMILY, fontFamily);
-         // System.out.println("Fam:get " + getPreferences().get("FONTFAMILY", fontFamily));
+         comboBoxFamily=new JComboBox<>(/* new Vector<>( Arrays.asList( */ GraphicsEnvironment
+                  .getLocalGraphicsEnvironment().getAvailableFontFamilyNames()/* )) */);
+         if (getPreferences().get(TAG_FONTFAMILY, fontFamily) instanceof String s)
+            setFont(s, fontSize, fontStyle);
          comboBoxFamily.addActionListener(_ -> {
-            // System.out.println("Action " + e.getActionCommand() + getComboBoxFamily().getSelectedItem());
             setFont((String) getComboBoxFamily().getSelectedItem(), fontSize, fontStyle);
             getPreferences().put(TAG_FONTFAMILY, fontFamily);
-            // System.out.println("Fam:put" + getPreferences().get("FONTFAMILY", "nix"));
             try {
                getPreferences().flush();
             } catch (final BackingStoreException e1) {/* */}
-            // System.out.println("Fam:flush" + getPreferences().get("FONTFAMILY", "nix"));
          });
          comboBoxFamily.setSelectedItem(fontFamily);
          comboBoxFamily.setPreferredSize(new Dimension(200, 28));
@@ -168,13 +158,11 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    private JComboBox<STYLE> getComboBoxStyle() {
       if (comboBoxStyle == null) {
          comboBoxStyle=new JComboBox<>(new Vector<>(Arrays.asList(STYLE.values())));
-         comboBoxStyle.addActionListener(e -> {
-            System.out.println(TEXT_ACTION + e.getActionCommand() + getComboBoxStyle().getSelectedItem());
+         comboBoxStyle.addActionListener(_ -> {
             if (getComboBoxStyle().getSelectedItem() instanceof final STYLE style)
                setFont(fontFamily, fontSize, style);
          });
          comboBoxStyle.setMinimumSize(new Dimension(200, 28));
-         // comboBoxStyle.setFont(UIManager.getFont("Button.font"));
       }
       return comboBoxStyle;
    }
@@ -185,7 +173,6 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
          final var me=this;
          integerView.addChangeListener(_ -> SwingUtilities.invokeLater(() -> {
             final var fontStretch=Double.toString(me.getStretch());
-            System.out.println("stretch=" + fontStretch);
             getMustertext().repaint(100);
             getPreferences().put(TAG_FONTSTRECH, fontStretch);
             try {
@@ -229,7 +216,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    }
    @SuppressWarnings("null")
    @NonNull
-   private JLabel getMustertext() {
+   public JLabel getMustertext() {
       if (Mustertext == null) {
          Mustertext=new JLabel("Mustertext") {
             static private final long serialVersionUID=3166086304017612018L;
@@ -248,6 +235,7 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
             }
          };
          Mustertext.setBorder(new BevelBorder(BevelBorder.LOWERED));
+         // Mustertext.setFont(getFont());
          Mustertext.setHorizontalAlignment(SwingConstants.CENTER);
       }
       return Mustertext;
@@ -319,7 +307,6 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
          gbc_integerView.gridx=3;
          gbc_integerView.gridy=1;
          panel.add(getIntegerView(), gbc_integerView);
-         // setFont(fontFamily, fontSize, fontStyle);
       }
       return panel;
    }
@@ -339,9 +326,8 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
    @NonNull
    private Preferences getPreferences(Class<?> c) {
       if (preferences == null) {
-         final Class<?> cl=(c != null) ? c : this.getClass();
+         final var cl=c != null ? c : this.getClass();
          preferences=Preferences.userNodeForPackage(cl);
-         // System.out.println("P:" + preferences);
       }
       return preferences;
    }
@@ -353,19 +339,17 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
          spinnerSize.setMinimumSize(new Dimension(400, 28));
          spinnerSize.setModel(new SpinnerNumberModel(1f, 1f, 1000f, 1f));
          synchronized (fontFamily) {
-            fontSize=getPreferences().getFloat(TAG_FONTSIZE, fontSize);
+            setFont(fontFamily, getPreferences().getFloat(TAG_FONTSIZE, fontSize), fontStyle);
          }
          spinnerSize.addChangeListener(_ -> {
             final var value=getSpinnerSize().getValue();
-            System.out.println(TEXT_ACTION + value + value.getClass());
-            if (value instanceof final Integer i)
-               setFont(fontFamily, i, fontStyle);
-            else
-               if (value instanceof final Float f)
-                  setFont(fontFamily, f, fontStyle);
-               else
-                  if (value instanceof final Number n)
-                     setFont(fontFamily, n.floatValue(), fontStyle);
+            switch (value) {
+               case final Integer i -> setFont(fontFamily, i, fontStyle);
+               case final Float f -> setFont(fontFamily, f, fontStyle);
+               case final Number n -> setFont(fontFamily, n.floatValue(), fontStyle);
+               case null, default -> {
+                  /* nix tun */ }
+            }
             getPreferences().putFloat(TAG_FONTSIZE, fontSize);
             try {
                getPreferences().flush();
@@ -380,7 +364,8 @@ public class Fontauswahl extends JPanel implements PropertyChangeListener {
       setBorder(new EmptyBorder(5, 5, 5, 5));
       setPreferredSize(new Dimension(500, 150));
       setLayout(new BorderLayout(5, 5));
-      add(getMustertext(), BorderLayout.CENTER);
       add(getPanel(), BorderLayout.NORTH);
+      add(getMustertext(), BorderLayout.CENTER);
+      // SwingUtilities.invokeLater(() -> getMustertext().setFont(getFont()));
    }
 }
