@@ -4,14 +4,22 @@
 package de.uhingen.kielkopf.andreas.beans;
 
 import java.awt.BorderLayout;
-import java.awt.print.*;
+import java.awt.print.PageFormat;
+import java.awt.print.Paper;
+import java.awt.print.Printable;
+import java.awt.print.PrinterException;
+import java.awt.print.PrinterJob;
 import java.util.Arrays;
 import java.util.Vector;
 
 import javax.print.PrintService;
 import javax.print.attribute.HashPrintRequestAttributeSet;
 import javax.print.attribute.standard.Copies;
-import javax.swing.*;
+import javax.swing.Box;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JPanel;
+import javax.swing.SpinnerNumberModel;
 
 import org.eclipse.jdt.annotation.NonNull;
 

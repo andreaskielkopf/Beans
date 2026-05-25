@@ -1,8 +1,15 @@
 package de.uhingen.kielkopf.andreas.beans;
 
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridLayout;
 
-import javax.swing.*;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JSlider;
+import javax.swing.SwingConstants;
 
 /**
  * JPanel mit Elementen zur Auswahl einer Farbe
