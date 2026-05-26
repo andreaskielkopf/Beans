@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package de.uhingen.kielkopf.andreas.beans.backsnap;
 
@@ -10,13 +10,12 @@ import java.awt.Color;
  *
  */
 public interface hasColor {
-
    /**
     * @return
     */
    Color getForeground();
-
    /**
     * @return
     */
-   Color getBackground();}
+   Color getBackground();
+}

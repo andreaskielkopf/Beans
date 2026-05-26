@@ -1,26 +1,31 @@
 /**
- * 
+ *
  */
 package de.uhingen.kielkopf.andreas.beans.test;
 
+import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.EventQueue;
+import java.awt.GridLayout;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.WindowConstants;
+import javax.swing.border.BevelBorder;
+import javax.swing.border.SoftBevelBorder;
+import javax.swing.border.TitledBorder;
 
 import de.uhingen.kielkopf.andreas.beans.backsnap.hasColor;
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel;
 import de.uhingen.kielkopf.andreas.beans.gui.FrameHelper;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-
 /**
  * Test-Application für AnimatedPanel
- * 
+ *
  * @author Andreas Kielkopf
  *
  */
@@ -28,15 +33,22 @@ public class TestAnimatedPanel {
    private JFrame                      frame;
    private JPanel                      panel;
    private AnimatedPanel<ColorInteger> animatedPanel;
+   private AnimatedPanel<ColorInteger> animatedPanel_1;
+   private AnimatedPanel<ColorInteger> animatedPanel_2;
+   private AnimatedPanel<ColorInteger> animatedPanel_3;
+   private JPanel                      panel_1;
+   private JPanel                      panel_2;
+   private JPanel                      panel_3;
+   private JPanel                      panel_4;
    /**
     * Launch the application.
     */
    public static void main(String[] args) {
       EventQueue.invokeLater(() -> {
          try {
-            TestAnimatedPanel window=new TestAnimatedPanel();
+            final TestAnimatedPanel window=new TestAnimatedPanel();
             window.frame.setVisible(true);
-         } catch (Exception e) {
+         } catch (final Exception e) {
             e.printStackTrace();
          }
       });
@@ -50,12 +62,16 @@ public class TestAnimatedPanel {
       Thread.startVirtualThread(() -> {
          try {
             Thread.currentThread().setName("Insert Objects");
-            SecureRandom sr=SecureRandom.getInstanceStrong();
-            for (int i=0; i < 5000; i++) {
-               int j=sr.nextInt() % 4000 + i;
-               if (getAnimatedPanel() instanceof AnimatedPanel<TestAnimatedPanel.ColorInteger> ap)
-                  SwingUtilities.invokeLater(() -> ap.add(new ColorInteger(j)));
-               Thread.sleep(i / 10);
+            final var sr=SecureRandom.getInstanceStrong();
+            for (var i=0; i < 2000; i++) {
+               final var j=i;
+               SwingUtilities.invokeLater(() -> {
+                  getAnimatedPanel().add(new ColorInteger(sr.nextInt() % 4000 + j));
+                  getAnimatedPanel_1().add(new ColorInteger(sr.nextInt() % 2000 + j));
+                  getAnimatedPanel_2().add(new ColorInteger(sr.nextInt() % 400 + j));
+                  getAnimatedPanel_3().add(new ColorInteger(sr.nextInt() % 1000 + j));
+               });
+               Thread.sleep(i / 10 + 5);
             }
          } catch (InterruptedException | NoSuchAlgorithmException e) {
             e.printStackTrace();
@@ -64,12 +80,15 @@ public class TestAnimatedPanel {
       Thread.startVirtualThread(() -> {
          try {
             Thread.currentThread().setName("Delete Objects");
-            SecureRandom sr=SecureRandom.getInstanceStrong();
-            for (int i=0; i < 10000; i++) {
-               int j2=sr.nextInt() % 4000;
-               if (getAnimatedPanel() instanceof AnimatedPanel<TestAnimatedPanel.ColorInteger> ap)
-                  SwingUtilities.invokeLater(() -> ap.delete(new ColorInteger(j2)));
-               Thread.sleep(i / 10 + 5);
+            final var sr=SecureRandom.getInstanceStrong();
+            for (var i=0; i < 10000; i++) {
+               SwingUtilities.invokeLater(() -> {
+                  getAnimatedPanel().delete(new ColorInteger(sr.nextInt() % 4000));
+                  getAnimatedPanel_1().delete(new ColorInteger(sr.nextInt() % 2000));
+                  getAnimatedPanel_2().delete(new ColorInteger(sr.nextInt() % 400));
+                  getAnimatedPanel_3().delete(new ColorInteger(sr.nextInt() % 1000));
+               });
+               Thread.sleep(i / 10 + 15);
             }
          } catch (InterruptedException | NoSuchAlgorithmException e) {
             e.printStackTrace();
@@ -82,26 +101,29 @@ public class TestAnimatedPanel {
    private void initialize() {
       frame=new JFrame();
       frame.setBounds(100, 100, 800, 650);
-      frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+      frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
       frame.getContentPane().add(getPanel(), BorderLayout.CENTER);
       FrameHelper.restore(frame);
    }
    private JPanel getPanel() {
       if (panel == null) {
          panel=new JPanel();
-         panel.setLayout(new BorderLayout(0, 0));
-         panel.add(getAnimatedPanel(), BorderLayout.CENTER);
+         panel.setLayout(new GridLayout(2, 2, 0, 0));
+         panel.add(getPanel_1());
+         panel.add(getPanel_2());
+         panel.add(getPanel_3());
+         panel.add(getPanel_4());
       }
       return panel;
    }
    private AnimatedPanel<ColorInteger> getAnimatedPanel() {
       if (animatedPanel == null) {
-         animatedPanel=new AnimatedPanel<ColorInteger>();
+         animatedPanel=new AnimatedPanel<>();
          animatedPanel.setMsDelete(55000);// 55 Sekunden
       }
       return animatedPanel;
    }
-   private class ColorInteger implements hasColor, Comparable<ColorInteger> {
+   private static class ColorInteger implements hasColor, Comparable<ColorInteger> {
       final int i;
       /**
        * Farbiger Integer, für Tests
@@ -115,7 +137,7 @@ public class TestAnimatedPanel {
       }
       @Override
       public Color getBackground() {
-         return (i % 2 == 0) ? Color.YELLOW : Color.ORANGE;
+         return i % 2 == 0 ? Color.YELLOW : Color.ORANGE;
       }
       @Override
       public String toString() {
@@ -125,5 +147,63 @@ public class TestAnimatedPanel {
       public int compareTo(ColorInteger o) {
          return Integer.compare(i, o.i);
       }
+   }
+   private AnimatedPanel<ColorInteger> getAnimatedPanel_1() {
+      if (animatedPanel_1 == null) {
+         animatedPanel_1=new AnimatedPanel<>();
+         animatedPanel_1.setMsDelete(55000);
+      }
+      return animatedPanel_1;
+   }
+   private AnimatedPanel<ColorInteger> getAnimatedPanel_2() {
+      if (animatedPanel_2 == null) {
+         animatedPanel_2=new AnimatedPanel<>();
+         animatedPanel_2.setMsDelete(55000);
+      }
+      return animatedPanel_2;
+   }
+   private AnimatedPanel<ColorInteger> getAnimatedPanel_3() {
+      if (animatedPanel_3 == null) {
+         animatedPanel_3=new AnimatedPanel<>();
+         animatedPanel_3.setMsDelete(55000);
+      }
+      return animatedPanel_3;
+   }
+   private JPanel getPanel_1() {
+      if (panel_1 == null) {
+         panel_1=new JPanel();
+         panel_1.setBorder(
+                  new TitledBorder(null, "AnimatedPanel 1", TitledBorder.LEADING, TitledBorder.TOP, null, null));
+         panel_1.setLayout(new GridLayout(1, 0, 0, 0));
+         panel_1.add(getAnimatedPanel());
+      }
+      return panel_1;
+   }
+   private JPanel getPanel_2() {
+      if (panel_2 == null) {
+         panel_2=new JPanel();
+         panel_2.setBorder(new BevelBorder(BevelBorder.LOWERED, null, null, null, null));
+         panel_2.setLayout(new GridLayout(1, 0, 0, 0));
+         panel_2.add(getAnimatedPanel_1());
+      }
+      return panel_2;
+   }
+   private JPanel getPanel_3() {
+      if (panel_3 == null) {
+         panel_3=new JPanel();
+         panel_3.setBorder(new SoftBevelBorder(BevelBorder.LOWERED, null, null, null, null));
+         panel_3.setLayout(new GridLayout(1, 0, 0, 0));
+         panel_3.add(getAnimatedPanel_2());
+      }
+      return panel_3;
+   }
+   private JPanel getPanel_4() {
+      if (panel_4 == null) {
+         panel_4=new JPanel();
+         panel_4.setBorder(UIManager.getBorder("TitledBorder.border"));
+         panel_4.setLayout(new GridLayout(1, 0, 0, 0));
+         panel_4.add(getAnimatedPanel_3());
+      }
+      return panel_4;
    }
 }

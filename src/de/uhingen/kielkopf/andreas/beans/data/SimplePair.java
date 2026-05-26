@@ -1,11 +1,11 @@
 /**
- * 
+ *
  */
 package de.uhingen.kielkopf.andreas.beans.data;
 
 /**
  * Enfaches Paar von 2 Objekten eines vorgegebenen Typs
- * 
+ *
  * @author Andreas Kielkopf
  * @param <T1>
  *           a
@@ -21,7 +21,7 @@ public class SimplePair<T1, T2> {
     *           T1
     * @param b_
     *           T2
-    * 
+    *
     */
    public SimplePair(T1 a_, T2 b_) {
       setA(a_);
@@ -36,11 +36,11 @@ public class SimplePair<T1, T2> {
    /**
     * @param a_
     *           T1
-    * 
+    *
     */
    public void setA(T1 a_) {
-      if (a_ instanceof T1 t1)
-         this.a=t1;
+      if (a_ instanceof final T1 t1)
+         a=t1;
    }
    /**
     * @return T2
@@ -51,10 +51,10 @@ public class SimplePair<T1, T2> {
    /**
     * @param b_
     *           T2
-    * 
+    *
     */
    public void setB(T2 b_) {
-      if (b_ instanceof T2 t2)
-         this.b=t2;
+      if (b_ instanceof final T2 t2)
+         b=t2;
    }
 }
