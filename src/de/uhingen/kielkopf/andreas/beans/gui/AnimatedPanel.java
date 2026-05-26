@@ -18,6 +18,7 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 
+import de.uhingen.kielkopf.andreas.beans.backsnap.hasColor;
 import de.uhingen.kielkopf.andreas.beans.data.SimplePair;
 
 /**
@@ -37,6 +38,8 @@ public class AnimatedPanel<T> extends JPanel {
    private JLabel                                                  shadow;
    /// Liste der zu zeichnenden Objekte mit ihrer Position als int
    private final ConcurrentSkipListMap<T, SimplePair<Long, Point>> componenten     =new ConcurrentSkipListMap<>();
+   /// Währed der Animation zum löschen
+   private final ConcurrentSkipListMap<T, SimplePair<Long, Point>> inDeletion      =new ConcurrentSkipListMap<>();
    /// Die Animation soll nur laufen wenn nötig, und nur einmalig
    private final AtomicBoolean                                     animationRunning=new AtomicBoolean(false);
    private int                                                     lh              =100;
@@ -48,6 +51,9 @@ public class AnimatedPanel<T> extends JPanel {
    private int                                                     oWidth          =w;
    /// Breite des anzeigbaren Bereichs
    private int                                                     vWidth          =w;
+   private int                                                     msAnimation     =25;
+   private int                                                     msDelete        =25000;
+   private int                                                     vHeight         =h;
    /**
     * Create the panel.
     */
@@ -69,24 +75,32 @@ public class AnimatedPanel<T> extends JPanel {
     */
    private void recalculateChildren() {
       var lpos=0L;
-      if (getShadow() instanceof final JLabel lbl)
+      if (getShadow() instanceof JLabel) {
          for (final Entry<T, SimplePair<Long, Point>> e:componenten.entrySet())
-            if (e.getKey() instanceof final T key) {
-               lbl.setText(key.toString());
-               var lWidth=lbl.getPreferredSize().width;
-               final var r=(int) (lpos % vWidth);
-               if (r + lWidth >= vWidth) {// Umbruch noch in diesem Label
-                  lpos+=vWidth - r; // an den Anfang der nächsten Zeile
-                  e.getValue().setA(lpos);
-                  lpos+=lWidth + hgap;
-               } else {
-                  e.getValue().setA(lpos);
-                  lpos=r + lWidth >= vWidth ? // Umbruch danach
-                           vWidth * (lpos / vWidth + 1) : //
-                           lpos + lWidth + hgap;
-               }
-            }
+            lpos=calculate(lpos, e);
+         for (final Entry<T, SimplePair<Long, Point>> e:inDeletion.entrySet())
+            lpos=calculate(lpos, e);
+      }
       animate();
+   }
+   private long calculate(long lpos_, final Entry<T, SimplePair<Long, Point>> e) {
+      long lp=lpos_;
+      if (e.getKey() instanceof final T key) {
+         getShadow().setText(key.toString());
+         var lWidth=getShadow().getPreferredSize().width;
+         final var r=(int) (lp % vWidth);
+         if (r + lWidth >= vWidth) {// Umbruch noch in diesem Label
+            lp+=vWidth - r; // an den Anfang der nächsten Zeile
+            e.getValue().setA(lp);
+            lp+=lWidth + hgap;
+         } else {
+            e.getValue().setA(lp);
+            lp=r + lWidth >= vWidth ? // Umbruch danach
+                     vWidth * (lp / vWidth + 1) : //
+                     lp + lWidth + hgap;
+         }
+      }
+      return lp;
    }
    /**
     * Berene die nächste animierte Position die gewünscht ist, und bewege das Objekt auch
@@ -140,9 +154,13 @@ public class AnimatedPanel<T> extends JPanel {
                Thread.currentThread().setName("Animate Objects");
                var count=0;
                do {
-                  Thread.sleep(25);
-                  count=componenten.size();
+                  Thread.sleep(getMsAnimation());
+                  count=componenten.size() + inDeletion.size();
                   for (final Entry<T, SimplePair<Long, Point>> e:componenten.entrySet())
+                     if (e.getValue() instanceof final SimplePair<Long, Point> value)
+                        if (!move(value))
+                           count--;
+                  for (final Entry<T, SimplePair<Long, Point>> e:inDeletion.entrySet())
                      if (e.getValue() instanceof final SimplePair<Long, Point> value)
                         if (!move(value))
                            count--;
@@ -167,28 +185,43 @@ public class AnimatedPanel<T> extends JPanel {
          if (oWidth != vWidth)
             recalculateChildren();
          oWidth=vWidth;// nur merken damit wir nicht ständig alles neu berechnen
-         final var vHeight=getHeight() - vgap - vgap + j.top - j.bottom;
+         vHeight=getHeight() - vgap - vgap + j.top - j.bottom;
          final var d=getDelegate();
          var di=d.getPreferredSize();
          lh=di.height + hgap;
-         for (final Entry<T, SimplePair<Long, Point>> e:componenten.entrySet()) {
-            if (e.getKey() instanceof final T k) {
-               d.setText(k.toString()); /// Text setzen
-               if (k instanceof final hasColor kc) {
-                  d.setForeground(kc.getForeground() instanceof final Color c ? c : Color.BLACK);
-                  d.setBackground(kc.getBackground() instanceof final Color c ? c : Color.WHITE);
-               }
-               final var point=e.getValue().getB();
-               final var x=point.x;
-               final var y=point.y;
-               di=d.getPreferredSize();
-               if ((x > 0 && x + di.width < vWidth) && (y > 0 && y + di.height < vHeight)) {
-                  SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
-               }
-            }
-         }
+         for (final Entry<T, SimplePair<Long, Point>> e:componenten.entrySet())
+            if (e.getKey() instanceof final T k)
+               paintChild(g2d, e, false);
+         for (final Entry<T, SimplePair<Long, Point>> e:inDeletion.entrySet())
+            if (e.getKey() instanceof final T k)
+               paintChild(g2d, e, true);
       }
       super.paintChildren(g);
+   }
+   /**
+    * 
+    * @param g2d
+    * @param e
+    * @param deleted
+    */
+   private void paintChild(Graphics2D g2d, final Entry<T, SimplePair<Long, Point>> e, final boolean deleted) {
+      if (e.getKey() instanceof final T k) {
+         JLabel d=getDelegate();
+         d.setText(k.toString()); /// Text setzen
+         if (k instanceof final hasColor kc) {
+            Color f=(kc.getForeground() instanceof final Color c ? c : Color.BLACK);
+            Color b=(kc.getBackground() instanceof final Color c ? c : Color.WHITE);
+            d.setForeground(deleted ? b : f);
+            d.setBackground(deleted ? f : b);
+         }
+         final var point=e.getValue().getB();
+         final var x=point.x;
+         final var y=point.y;
+         Dimension di=d.getPreferredSize();
+         if ((x > 0 && x + di.width < vWidth) && (y > 0 && y + di.height < vHeight)) {
+            SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
+         }
+      }
    }
    /**
     * Dieses JLabel wird zum Zeichnen verwendet
@@ -234,8 +267,28 @@ public class AnimatedPanel<T> extends JPanel {
     */
    public void delete(T t) {
       if (componenten.containsKey(t)) {
-         componenten.remove(t);
+         inDeletion.put(t, componenten.remove(t));
          recalculateChildren();
+         Thread.startVirtualThread(() -> {
+            try {
+               Thread.sleep(getMsDelete());
+               if (inDeletion.containsKey(t))
+                  inDeletion.remove(t);
+               recalculateChildren();
+            } catch (InterruptedException e) { /* */ }
+         });
       }
+   }
+   public int getMsDelete() {
+      return msDelete;
+   }
+   public void setMsDelete(int msDelete) {
+      this.msDelete=msDelete;
+   }
+   public int getMsAnimation() {
+      return msAnimation;
+   }
+   public void setMsAnimation(int msAnimation) {
+      this.msAnimation=msAnimation;
    }
 }
