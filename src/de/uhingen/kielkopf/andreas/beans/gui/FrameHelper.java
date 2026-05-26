@@ -106,7 +106,7 @@ public class FrameHelper {
                frame.setBounds(r0);
          }
       }
-      frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+//      frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
       frame.addWindowListener(new WindowAdapter() {
          @Override
          public void windowClosing(WindowEvent e) {
