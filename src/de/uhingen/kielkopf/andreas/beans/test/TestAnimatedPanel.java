@@ -1,7 +1,7 @@
 /**
  * 
  */
-package de.uhingen.kielkopf.andreas.beans.backsnap;
+package de.uhingen.kielkopf.andreas.beans.test;
 
 import java.awt.EventQueue;
 import java.security.NoSuchAlgorithmException;
@@ -11,6 +11,8 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+import de.uhingen.kielkopf.andreas.beans.backsnap.hasColor;
+import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel;
 import de.uhingen.kielkopf.andreas.beans.gui.FrameHelper;
 
 import java.awt.BorderLayout;

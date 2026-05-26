@@ -1,7 +1,7 @@
 /**
  *
  */
-package de.uhingen.kielkopf.andreas.beans.backsnap;
+package de.uhingen.kielkopf.andreas.beans.gui;
 
 import java.awt.Color;
 import java.awt.Dimension;
