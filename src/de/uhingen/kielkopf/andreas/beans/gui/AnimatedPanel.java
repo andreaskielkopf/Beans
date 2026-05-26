@@ -190,11 +190,9 @@ public class AnimatedPanel<T> extends JPanel {
          var di=d.getPreferredSize();
          lh=di.height + hgap;
          for (final Entry<T, SimplePair<Long, Point>> e:componenten.entrySet())
-            if (e.getKey() instanceof final T k)
-               paintChild(g2d, e, false);
+            paintChild(g2d, e, false); // aktive Elemente
          for (final Entry<T, SimplePair<Long, Point>> e:inDeletion.entrySet())
-            if (e.getKey() instanceof final T k)
-               paintChild(g2d, e, true);
+            paintChild(g2d, e, true); // gelöschte Elemente invers
       }
       super.paintChildren(g);
    }
@@ -266,11 +264,12 @@ public class AnimatedPanel<T> extends JPanel {
     *           Element to remove
     */
    public void delete(T t) {
-      if (componenten.containsKey(t)) {
+      if (t instanceof T && componenten.containsKey(t)) {
          inDeletion.put(t, componenten.remove(t));
          recalculateChildren();
          Thread.startVirtualThread(() -> {
             try {
+               Thread.currentThread().setName("delete " + t.toString());
                Thread.sleep(getMsDelete());
                if (inDeletion.containsKey(t))
                   inDeletion.remove(t);
@@ -279,16 +278,30 @@ public class AnimatedPanel<T> extends JPanel {
          });
       }
    }
+   /**
+    * @return msDelet
+    */
    public int getMsDelete() {
       return msDelete;
    }
-   public void setMsDelete(int msDelete) {
-      this.msDelete=msDelete;
+   /**
+    * @param msDelete_
+    *           Zeit nachdem das Objekt verschwindet
+    */
+   public void setMsDelete(int msDelete_) {
+      this.msDelete=msDelete_;
    }
+   /**
+    * @return msAnimation
+    */
    public int getMsAnimation() {
       return msAnimation;
    }
-   public void setMsAnimation(int msAnimation) {
-      this.msAnimation=msAnimation;
+   /**
+    * @param msAnimation_
+    *           Zeit für jeden Bewegungsschritt
+    */
+   public void setMsAnimation(int msAnimation_) {
+      this.msAnimation=msAnimation_;
    }
 }
