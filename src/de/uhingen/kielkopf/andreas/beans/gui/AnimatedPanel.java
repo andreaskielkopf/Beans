@@ -11,7 +11,9 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Collections;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -205,6 +207,7 @@ public class AnimatedPanel<T> extends JPanel {
                if (!selectedItems.add(key)) // hinzufügen oder entfernen
                   selectedItems.remove(key);
                repaint(100);
+               e.consume();
                System.out.println(
                         (key instanceof final hasName hn ? hn.getName() : key.toString()) + " @ " + p.x + ":" + p.y);
             }
@@ -306,17 +309,33 @@ public class AnimatedPanel<T> extends JPanel {
                      final var a=i.a - System.currentTimeMillis();
                      if (a > 0)
                         Thread.sleep(a);
-                     final var b=i.b;
-                     if (deletedItems.containsKey(b))
-                        deletedItems.remove(b);
-                     if (selectedItems.contains(b))
-                        selectedItems.remove(b);
+                     if (deletedItems.containsKey(i.b))
+                        deletedItems.remove(i.b);
+                     if (selectedItems.contains(i.b))
+                        selectedItems.remove(i.b);
                      recalculateChildren();
                   }
-               } catch (final InterruptedException e) { /* */ }
+               } catch (final InterruptedException _) { /* */ }
                deletionRunning.set(false);
             });
       }
+   }
+   /**
+    * Ergibt das Set mit allen selected Values
+    * 
+    * @return
+    */
+   public Set<T> getSelectedValues() {
+      return Collections.unmodifiableSet(selectedItems);
+   }
+   /**
+    * Setzt das Set mit allen selected Values
+    * 
+    * @return
+    */
+   public void setSelectedValues(Set<T> values) {
+      selectedItems.clear();
+      selectedItems.addAll(values);
    }
    /**
     * Dieses JLabel wird zum Zeichnen verwendet
@@ -392,7 +411,7 @@ public class AnimatedPanel<T> extends JPanel {
          for (final Entry<T, Pair<Long, Point>> e:deletedItems.entrySet())
             paintChild(g2d, e, true); // gelöschte Elemente invers
       }
-      super.paintChildren(g);
+      // super.paintChildren(g);
    }
    /**
     * Berechne eine akzeptable Bewegungsrate
