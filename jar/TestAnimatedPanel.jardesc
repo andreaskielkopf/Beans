@@ -13,7 +13,7 @@
     <selectedElements exportClassFiles="true" exportJavaFiles="true" exportOutputFolder="false">
         <javaElement handleIdentifier="=Beans/src&lt;de.uhingen.kielkopf.andreas.beans.gui{FrameHelper.java"/>
         <javaElement handleIdentifier="=Beans/src&lt;de.uhingen.kielkopf.andreas.beans.gui{AnimatedPanel.java"/>
+        <javaElement handleIdentifier="=Beans/src&lt;de.uhingen.kielkopf.andreas.beans.gui{SelectableAnimatedPanel.java"/>
         <javaElement handleIdentifier="=Beans/src&lt;de.uhingen.kielkopf.andreas.beans.test{TestAnimatedPanel.java"/>
-        <javaElement handleIdentifier="=Beans/src&lt;de.uhingen.kielkopf.andreas.beans.gui{hasToolTip.java"/>
     </selectedElements>
 </jardesc>

@@ -9,8 +9,6 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map.Entry;
@@ -222,7 +220,7 @@ public class AnimatedPanel<T> extends JPanel {
          final var d=getDelegate();
          d.setText(k instanceof final hasName hn ? hn.getName() : k.toString()); /// Text setzen
          if (k instanceof final hasColors kc) {
-            final var s=(selectedItems == null) ? false : selectedItems.contains(k);
+            final var s=selectedItems == null ? false : selectedItems.contains(k);
             final var f=kc.getForeground(s) instanceof final Color c ? c : Color.BLACK;
             final var b=kc.getBackground(s) instanceof final Color c ? c : Color.WHITE;
             d.setForeground(deleted ? b : f);
@@ -258,15 +256,15 @@ public class AnimatedPanel<T> extends JPanel {
     *           Element to add
     */
    public void add(T t) {
-      boolean change=!allItems.containsKey(t);
+      final var change=!allItems.containsKey(t);
       if (change && new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair) {
          allItems.put(t, pair);
          recalculateChildren();
       }
    }
    public void addAll(Collection<T> values) {
-      boolean changed=false;
-      for (T t:values)
+      var changed=false;
+      for (final T t:values)
          if (!allItems.containsKey(t) && new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair) {
             allItems.put(t, pair);
             changed=true;

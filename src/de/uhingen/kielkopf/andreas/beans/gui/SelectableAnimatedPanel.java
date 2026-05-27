@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package de.uhingen.kielkopf.andreas.beans.gui;
 
@@ -7,12 +7,10 @@ import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Collections;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.NavigableSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
-
-import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.Pair;
-import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.hasName;
 
 /**
  * @author Andreas Kielkopf
@@ -41,7 +39,7 @@ public class SelectableAnimatedPanel<T> extends AnimatedPanel<T> {
                      treffer=entry;
             }
             if (treffer instanceof final Entry<T, AnimatedPanel<T>.Pair<Long, Point>> tr
-                     && tr.getKey() instanceof T key) {
+                     && tr.getKey() instanceof final T key) {
                if (!selectedItems.add(key)) // hinzufügen oder entfernen
                   selectedItems.remove(key);
                repaint(100);
@@ -54,15 +52,15 @@ public class SelectableAnimatedPanel<T> extends AnimatedPanel<T> {
    }
    /**
     * Ergibt das Set mit allen selected Values
-    * 
+    *
     * @return
     */
-   public Set<T> getSelectedValues() {
-      return Collections.unmodifiableSet(selectedItems);
+   public NavigableSet<T> getSelectedValues() {
+      return Collections.unmodifiableNavigableSet(selectedItems);
    }
    /**
     * Setzt das Set mit allen selected Values
-    * 
+    *
     * @return
     */
    public void setSelectedValues(Set<T> values) {

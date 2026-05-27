@@ -9,6 +9,7 @@ import java.awt.EventQueue;
 import java.awt.GridLayout;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.NavigableSet;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -32,16 +33,16 @@ import de.uhingen.kielkopf.andreas.beans.gui.SelectableAnimatedPanel;
  *
  */
 public class TestAnimatedPanel {
-   private JFrame                      frame;
-   private JPanel                      panel;
-   private AnimatedPanel<ColorInteger> animatedPanel;
-   private AnimatedPanel<ColorInteger> animatedPanel_1;
-   private AnimatedPanel<ColorInteger> animatedPanel_2;
-   private AnimatedPanel<ColorInteger> animatedPanel_3;
-   private JPanel                      panel_1;
-   private JPanel                      panel_2;
-   private JPanel                      panel_3;
-   private JPanel                      panel_4;
+   private JFrame                                frame;
+   private JPanel                                panel;
+   private SelectableAnimatedPanel<ColorInteger> animatedPanel;
+   private SelectableAnimatedPanel<ColorInteger> animatedPanel_1;
+   private SelectableAnimatedPanel<ColorInteger> animatedPanel_2;
+   private AnimatedPanel<ColorInteger>           animatedPanel_3;
+   private JPanel                                panel_1;
+   private JPanel                                panel_2;
+   private JPanel                                panel_3;
+   private JPanel                                panel_4;
    /**
     * Launch the application.
     */
@@ -89,6 +90,9 @@ public class TestAnimatedPanel {
                   getAnimatedPanel_1().delete(new ColorInteger(sr.nextInt() % 2000));
                   getAnimatedPanel_2().delete(new ColorInteger(sr.nextInt() % 400));
                   getAnimatedPanel_3().delete(new ColorInteger(sr.nextInt() % 1000));
+                  if (getAnimatedPanel_1().getSelectedValues() instanceof final NavigableSet<ColorInteger> w)
+                     for (final ColorInteger colorInteger:w)
+                        getAnimatedPanel_1().delete(colorInteger);
                });
                Thread.sleep(i / 5 + 25);
             }
@@ -118,7 +122,7 @@ public class TestAnimatedPanel {
       }
       return panel;
    }
-   private AnimatedPanel<ColorInteger> getAnimatedPanel() {
+   private SelectableAnimatedPanel<ColorInteger> getAnimatedPanel() {
       if (animatedPanel == null) {
          animatedPanel=new SelectableAnimatedPanel<>();
          animatedPanel.setMsDelete(55000);// 55 Sekunden
@@ -154,7 +158,7 @@ public class TestAnimatedPanel {
          return "0x" + Integer.toHexString(i).toUpperCase();
       }
    }
-   private AnimatedPanel<ColorInteger> getAnimatedPanel_1() {
+   private SelectableAnimatedPanel<ColorInteger> getAnimatedPanel_1() {
       if (animatedPanel_1 == null) {
          animatedPanel_1=new SelectableAnimatedPanel<>();
          animatedPanel_1.setMsDelete(15000);
@@ -165,9 +169,9 @@ public class TestAnimatedPanel {
       }
       return animatedPanel_1;
    }
-   private AnimatedPanel<ColorInteger> getAnimatedPanel_2() {
+   private SelectableAnimatedPanel<ColorInteger> getAnimatedPanel_2() {
       if (animatedPanel_2 == null) {
-         animatedPanel_2=new AnimatedPanel<>();
+         animatedPanel_2=new SelectableAnimatedPanel<>();
          animatedPanel_2.setMsDelete(60000);
          animatedPanel_2.setMsAnimation(50);
       }
