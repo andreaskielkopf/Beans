@@ -19,7 +19,6 @@ import javax.swing.border.BevelBorder;
 import javax.swing.border.SoftBevelBorder;
 import javax.swing.border.TitledBorder;
 
-
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel;
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.hasColors;
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.hasName;
@@ -63,7 +62,7 @@ public class TestAnimatedPanel {
       getAnimatedPanel().getDelegate().setBackground(Color.YELLOW.brighter());
       Thread.startVirtualThread(() -> {
          try {
-            Thread.currentThread().setName(getClass().getSimpleName()+" Insert");
+            Thread.currentThread().setName(getClass().getSimpleName() + " Insert");
             final var sr=SecureRandom.getInstanceStrong();
             for (var i=0; i < 1000; i++) {
                final var j=i;
@@ -81,7 +80,7 @@ public class TestAnimatedPanel {
       });
       Thread.startVirtualThread(() -> {
          try {
-            Thread.currentThread().setName(getClass().getSimpleName()+" Delete");
+            Thread.currentThread().setName(getClass().getSimpleName() + " Delete");
             final var sr=SecureRandom.getInstanceStrong();
             for (var i=0; i < 5000; i++) {
                SwingUtilities.invokeLater(() -> {
@@ -134,12 +133,12 @@ public class TestAnimatedPanel {
          i=i_;
       }
       @Override
-      public Color getForeground() {
+      public Color getForeground(boolean isSelected) {
          return i < 0 ? Color.RED : Color.BLACK;
       }
       @Override
-      public Color getBackground() {
-         return i % 2 == 0 ? Color.YELLOW : Color.ORANGE;
+      public Color getBackground(boolean isSelected) {
+         return !isSelected ? Color.YELLOW : Color.ORANGE;
       }
       @Override
       public String toString() {
@@ -158,10 +157,10 @@ public class TestAnimatedPanel {
       if (animatedPanel_1 == null) {
          animatedPanel_1=new AnimatedPanel<>();
          animatedPanel_1.setMsDelete(15000);
-         animatedPanel_1.getDelegate().setBorder(
-                  new TitledBorder(null, "Title", TitledBorder.LEADING, TitledBorder.TOP, null, null));
-         animatedPanel_1.getShadow().setBorder(
-                  new TitledBorder(null, "Title", TitledBorder.LEADING, TitledBorder.TOP, null, null));
+         animatedPanel_1.getDelegate()
+                  .setBorder(new TitledBorder(null, "Title", TitledBorder.LEADING, TitledBorder.TOP, null, null));
+         animatedPanel_1.getShadow()
+                  .setBorder(new TitledBorder(null, "Title", TitledBorder.LEADING, TitledBorder.TOP, null, null));
       }
       return animatedPanel_1;
    }
