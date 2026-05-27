@@ -19,8 +19,9 @@ import javax.swing.border.BevelBorder;
 import javax.swing.border.SoftBevelBorder;
 import javax.swing.border.TitledBorder;
 
-import de.uhingen.kielkopf.andreas.beans.backsnap.hasColor;
+
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel;
+import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.hasColors;
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.hasName;
 import de.uhingen.kielkopf.andreas.beans.gui.FrameHelper;
 
@@ -124,7 +125,7 @@ public class TestAnimatedPanel {
       }
       return animatedPanel;
    }
-   private static class ColorInteger implements hasName, hasColor, Comparable<ColorInteger> {
+   private static class ColorInteger implements hasName, hasColors, Comparable<ColorInteger> {
       final int i;
       /**
        * Farbiger Integer, für Tests

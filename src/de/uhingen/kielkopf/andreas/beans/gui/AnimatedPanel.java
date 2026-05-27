@@ -19,7 +19,7 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 
-import de.uhingen.kielkopf.andreas.beans.backsnap.hasColor;
+
 
 /**
  * Ein JPanel, das eine Reihe von Objekten ohne Layoutmanager darstellt.
@@ -33,30 +33,30 @@ import de.uhingen.kielkopf.andreas.beans.backsnap.hasColor;
  */
 public class AnimatedPanel<T> extends JPanel {
    private static final long                                 serialVersionUID=6254515647851855442L;
-   /// JLabel zum eigentlichen Zeichnen
-   private JLabel                                            delegate;
-   /// JLabel zum Berechnen der Größe
-   private JLabel                                            shadow;
-   /// Liste der zu zeichnenden Objekte mit ihrer Position als int
-   private final ConcurrentSkipListMap<T, Pair<Long, Point>> componenten     =new ConcurrentSkipListMap<>();
-   /// Währed der Animation zum löschen
-   private final ConcurrentSkipListMap<T, Pair<Long, Point>> inDeletion      =new ConcurrentSkipListMap<>();
-   private final LinkedBlockingQueue<Pair<Long, T>>          deleteQueue     =new LinkedBlockingQueue<>();
    /// Die Animation soll nur laufen wenn nötig, und nur einmalig
    private final AtomicBoolean                               animationRunning=new AtomicBoolean(false);
+   /// Liste der zu zeichnenden Objekte mit ihrer Position als int
+   private final ConcurrentSkipListMap<T, Pair<Long, Point>> componenten     =new ConcurrentSkipListMap<>();
+   /// JLabel zum eigentlichen Zeichnen
+   private JLabel                                            delegate;
+   private final LinkedBlockingQueue<Pair<Long, T>>          deleteQueue     =new LinkedBlockingQueue<>();
    private final AtomicBoolean                               deletionRunning =new AtomicBoolean(false);
-   private int                                               lh              =100;
-   private final int                                         w               =500;
    private final int                                         h               =500;
    private final int                                         hgap            =5;
-   private final int                                         vgap            =5;
-   /// Bisherige Breite
-   private int                                               oWidth          =w;
-   /// Breite des anzeigbaren Bereichs
-   private int                                               vWidth          =w;
+   /// Währed der Animation zum löschen
+   private final ConcurrentSkipListMap<T, Pair<Long, Point>> inDeletion      =new ConcurrentSkipListMap<>();
+   private int                                               lh              =100;
    private int                                               msAnimation     =25;
    private int                                               msDelete        =25000;
+   /// JLabel zum Berechnen der Größe
+   private JLabel                                            shadow;
+   private final int                                         vgap            =5;
    private int                                               vHeight         =h;
+   private final int                                         w               =500;
+   /// Bisherige Breite
+   int                                                       oWidth          =w;
+   /// Breite des anzeigbaren Bereichs
+   int                                                       vWidth          =w;
    /**
     * Create the panel.
     */
@@ -64,27 +64,97 @@ public class AnimatedPanel<T> extends JPanel {
       init();
    }
    /**
-   *
-   */
-   private void init() {
-      setPreferredSize(new Dimension(w, h));
-   }
-   /**
-    * Berechne die relative Position für jedes Element anhand seiner Breite
+    * Enfaches Paar von 2 Objekten eines vorgegebenen Typs
     *
-    * @param pwn
-    * @return
+    * @author Andreas Kielkopf
+    * @param <T1>
+    *           a
+    * @param <T2>
+    *           b
     *
     */
-   private void recalculateChildren() {
-      var lpos=0L;
-      if (getShadow() instanceof JLabel) {
-         for (final Entry<T, Pair<Long, Point>> e:componenten.entrySet())
-            lpos=calculate(lpos, e);
-         for (final Entry<T, Pair<Long, Point>> e:inDeletion.entrySet())
-            lpos=calculate(lpos, e);
+   private class Pair<T1, T2> {
+      @SuppressWarnings("null") private T1 a=null;
+      @SuppressWarnings("null") private T2 b=null;
+      Pair(T1 a_, T2 b_) {
+         setA(a_);
+         setB(b_);
       }
-      animate();
+      T1 getA() {
+         return a;
+      }
+      T2 getB() {
+         return b;
+      }
+      void setA(T1 a_) {
+         if (a_ instanceof final T1 t1)
+            a=t1;
+      }
+      void setB(T2 b_) {
+         if (b_ instanceof final T2 t2)
+            b=t2;
+      }
+   }
+
+   /**
+    * Das Objekt kann einen kurzen Namen für die Anzeige liefern
+    * 
+    * @author Andreas Kielkopf
+    *
+    */
+   public interface hasName {
+      /**
+       * @return short Name of the Object
+       */
+      String getName();
+   }
+
+   /**
+    * Das Objekt kann einen kurzen Namen für die Anzeige liefern
+    * 
+    * @author Andreas Kielkopf
+    *
+    */
+   public interface hasColors {
+      /**
+       * @return
+       */
+      Color getForeground();
+      /**
+       * @return
+       */
+      Color getBackground();
+   }
+   /**
+    * animiere die Labels in einem virtuellen Thread.
+    * 
+    * Aber nur einen Thread starten, und nur enden, wenn alles am Ziel ist
+    */
+   private void animate() {
+      if (animationRunning.compareAndSet(false, true))
+         Thread.startVirtualThread(() -> {
+            try {
+               Thread.currentThread().setName(getClass().getSimpleName() + " Animate");
+               var count=0;
+               do {
+                  Thread.sleep(getMsAnimation());
+                  count=componenten.size() + inDeletion.size();
+                  for (final Entry<T, Pair<Long, Point>> e:componenten.entrySet())
+                     if (e.getValue() instanceof final Pair<Long, Point> value)
+                        if (!move(value))
+                           count--;
+                  for (final Entry<T, Pair<Long, Point>> e:inDeletion.entrySet())
+                     if (e.getValue() instanceof final Pair<Long, Point> value)
+                        if (!move(value))
+                           count--;
+                  repaint(100);
+               } while (count > 0);
+            } catch (final InterruptedException e1) {
+               System.err.println(e1);
+            }
+            animationRunning.set(false); // Jetzt darf ein neuer Thread gestartet werden
+            repaint(1000);
+         });
    }
    private long calculate(long lpos_, final Entry<T, Pair<Long, Point>> e) {
       long lp=lpos_;
@@ -104,6 +174,12 @@ public class AnimatedPanel<T> extends JPanel {
          }
       }
       return lp;
+   }
+   /**
+   *
+   */
+   private void init() {
+      setPreferredSize(new Dimension(w, h));
    }
    /**
     * Berechne die nächste animierte Position die gewünscht ist, und bewege das Objekt auch dorthin
@@ -131,50 +207,137 @@ public class AnimatedPanel<T> extends JPanel {
       return changed;
    }
    /**
-    * Berechne eine akzeptable Bewegungsrate
     * 
-    * @param a
-    * @param b
-    * @return
+    * @param g2d
+    * @param e
+    * @param deleted
     */
-   private static int speed(int a, int b) {
-      if (a == b)
-         return 0;
-      final var c=a > b;
-      final var d=c ? a - b : b - a;
-      final var e=32 - Integer.numberOfLeadingZeros(d);
-      return d < 4 ? c ? 1 : -1 : c ? e * 2 : -e * 2; // Schritte je nach Abstand
+   private void paintChild(Graphics2D g2d, final Entry<T, Pair<Long, Point>> e, final boolean deleted) {
+      if (e.getKey() instanceof final T k) {
+         JLabel d=getDelegate();
+         d.setText(k instanceof hasName hn ? hn.getName() : k.toString()); /// Text setzen
+         if (k instanceof final hasColors kc) {
+            Color f=(kc.getForeground() instanceof final Color c ? c : Color.BLACK);
+            Color b=(kc.getBackground() instanceof final Color c ? c : Color.WHITE);
+            d.setForeground(deleted ? b : f);
+            d.setBackground(deleted ? f : b);
+         }
+         final var point=e.getValue().getB();
+         final var x=point.x;
+         final var y=point.y;
+         Dimension di=d.getPreferredSize();
+         if ((x >= 0 && x + di.width <= vWidth) && (y >= 0 && y <= vHeight)) {
+            SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
+         }
+      }
    }
    /**
-    * animiere die Labels in einem virtuellen Thread.
-    * 
-    * Aber nur einen Thread starten, und nur enden, wenn alles am Ziel ist
+    * Berechne die relative Position für jedes Element anhand seiner Breite
+    *
+    * @param pwn
+    * @return
+    *
     */
-   private void animate() {
-      if (animationRunning.compareAndSet(false, true))
-         Thread.startVirtualThread(() -> {
-            try {
-               Thread.currentThread().setName(getClass().getSimpleName()+" Animate");
-               var count=0;
-               do {
-                  Thread.sleep(getMsAnimation());
-                  count=componenten.size() + inDeletion.size();
-                  for (final Entry<T, Pair<Long, Point>> e:componenten.entrySet())
-                     if (e.getValue() instanceof final Pair<Long, Point> value)
-                        if (!move(value))
-                           count--;
-                  for (final Entry<T, Pair<Long, Point>> e:inDeletion.entrySet())
-                     if (e.getValue() instanceof final Pair<Long, Point> value)
-                        if (!move(value))
-                           count--;
-                  repaint(100);
-               } while (count > 0);
-            } catch (final InterruptedException e1) {
-               System.err.println(e1);
-            }
-            animationRunning.set(false); // Jetzt darf ein neuer Thread gestartet werden
-            repaint(1000);
-         });
+   private void recalculateChildren() {
+      var lpos=0L;
+      if (getShadow() instanceof JLabel) {
+         for (final Entry<T, Pair<Long, Point>> e:componenten.entrySet())
+            lpos=calculate(lpos, e);
+         for (final Entry<T, Pair<Long, Point>> e:inDeletion.entrySet())
+            lpos=calculate(lpos, e);
+      }
+      animate();
+   }
+   /**
+    * @param t
+    *           Element to add
+    */
+   public void add(T t) {
+      if (!componenten.containsKey(t) && (new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair)) {
+         componenten.put(t, pair);
+         recalculateChildren();
+      }
+   }
+   /**
+    * @param t
+    *           Element to remove
+    */
+   public void delete(T t) {
+      if (t instanceof T && componenten.containsKey(t)) {
+         inDeletion.put(t, componenten.remove(t));
+         deleteQueue.offer(new Pair<Long, T>(System.currentTimeMillis() + getMsDelete(), t));
+         recalculateChildren();
+         if (deletionRunning.compareAndSet(false, true))
+            Thread.startVirtualThread(() -> {
+               Thread.currentThread().setName(getClass().getSimpleName() + " Deleter");
+               try {
+                  while (!deleteQueue.isEmpty()) {
+                     AnimatedPanel<T>.Pair<Long, T> i=deleteQueue.take();
+                     long a=i.a - System.currentTimeMillis();
+                     if (a > 0)
+                        Thread.sleep(a);
+                     T b=i.b;
+                     if (inDeletion.containsKey(b))
+                        inDeletion.remove(b);
+                     recalculateChildren();
+                  }
+               } catch (InterruptedException e) { /* */ }
+               deletionRunning.set(false);
+            });
+      }
+   }
+   /**
+    * Dieses JLabel wird zum Zeichnen verwendet
+    * 
+    * @return jLabel
+    */
+   public JLabel getDelegate() {
+      if (delegate == null) {
+         delegate=new JLabel("Delegate");
+         delegate.setBorder(new BevelBorder(BevelBorder.RAISED, null, null, null, null));
+         delegate.setFont(new Font("Noto Sans", Font.PLAIN, 15));
+         delegate.setOpaque(true);
+      }
+      return delegate;
+   }
+   /**
+    * @return msAnimation
+    */
+   public int getMsAnimation() {
+      return msAnimation;
+   }
+   /**
+    * @return msDelet
+    */
+   public int getMsDelete() {
+      return msDelete;
+   }
+   /**
+    * Dieses JLabel wird zur Größenberechnung im Hintergrund verwendet
+    * 
+    * @return jLabel
+    */
+   public JLabel getShadow() {
+      if (shadow == null) {
+         shadow=new JLabel(getDelegate().getText());
+         shadow.setBorder(getDelegate().getBorder());
+         shadow.setFont(getDelegate().getFont());
+      }
+      return shadow;
+   }
+   /**
+    * @param msAnimation_
+    *           Zeit für jeden Bewegungsschritt
+    */
+   public void setMsAnimation(int msAnimation_) {
+      this.msAnimation=msAnimation_;
+   }
+   /**
+    * @param msDelete_
+    *           Zeit nachdem das Objekt verschwindet
+    */
+   public void setMsDelete(int msDelete_) {
+      this.msDelete=msDelete_;
    }
    /**
     * Zeichne alle Objekte durch das Delegate an ihrer vorgesehen Position
@@ -200,161 +363,18 @@ public class AnimatedPanel<T> extends JPanel {
       super.paintChildren(g);
    }
    /**
+    * Berechne eine akzeptable Bewegungsrate
     * 
-    * @param g2d
-    * @param e
-    * @param deleted
+    * @param a
+    * @param b
+    * @return
     */
-   private void paintChild(Graphics2D g2d, final Entry<T, Pair<Long, Point>> e, final boolean deleted) {
-      if (e.getKey() instanceof final T k) {
-         JLabel d=getDelegate();
-         d.setText(k instanceof hasName hn ? hn.getName() : k.toString()); /// Text setzen
-         if (k instanceof final hasColor kc) {
-            Color f=(kc.getForeground() instanceof final Color c ? c : Color.BLACK);
-            Color b=(kc.getBackground() instanceof final Color c ? c : Color.WHITE);
-            d.setForeground(deleted ? b : f);
-            d.setBackground(deleted ? f : b);
-         }
-         final var point=e.getValue().getB();
-         final var x=point.x;
-         final var y=point.y;
-         Dimension di=d.getPreferredSize();
-         if ((x >= 0 && x + di.width <= vWidth) && (y >= 0 && y <= vHeight)) {
-            SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
-         }
-      }
-   }
-   /**
-    * Dieses JLabel wird zum Zeichnen verwendet
-    * 
-    * @return jLabel
-    */
-   public JLabel getDelegate() {
-      if (delegate == null) {
-         delegate=new JLabel("Delegate");
-         delegate.setBorder(new BevelBorder(BevelBorder.RAISED, null, null, null, null));
-         delegate.setFont(new Font("Noto Sans", Font.PLAIN, 15));
-         delegate.setOpaque(true);
-      }
-      return delegate;
-   }
-   /**
-    * Dieses JLabel wird zur Größenberechnung im Hintergrund verwendet
-    * 
-    * @return jLabel
-    */
-   public JLabel getShadow() {
-      if (shadow == null) {
-         shadow=new JLabel(getDelegate().getText());
-         shadow.setBorder(getDelegate().getBorder());
-         shadow.setFont(getDelegate().getFont());
-      }
-      return shadow;
-   }
-   /**
-    * @param t
-    *           Element to add
-    */
-   public void add(T t) {
-      if (!componenten.containsKey(t) && (new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair)) {
-         componenten.put(t, pair);
-         recalculateChildren();
-      }
-   }
-   /**
-    * @param t
-    *           Element to remove
-    */
-   public void delete(T t) {
-      if (t instanceof T && componenten.containsKey(t)) {
-         inDeletion.put(t, componenten.remove(t));
-         deleteQueue.offer(new Pair<Long, T>(System.currentTimeMillis() + getMsDelete(), t));
-         recalculateChildren();
-         if (deletionRunning.compareAndSet(false, true))
-            Thread.startVirtualThread(() -> {
-               Thread.currentThread().setName(getClass().getSimpleName()+" Deleter");
-               try {
-                  while (!deleteQueue.isEmpty()) {
-                     AnimatedPanel<T>.Pair<Long, T> i=deleteQueue.take();
-                     long a=i.a - System.currentTimeMillis();
-                     if (a > 0)
-                        Thread.sleep(a);
-                     T b=i.b;
-                     if (inDeletion.containsKey(b))
-                        inDeletion.remove(b);
-                     recalculateChildren();
-                  }
-               } catch (InterruptedException e) { /* */ }
-               deletionRunning.set(false);
-            });
-      }
-   }
-   /**
-    * @return msDelet
-    */
-   public int getMsDelete() {
-      return msDelete;
-   }
-   /**
-    * @param msDelete_
-    *           Zeit nachdem das Objekt verschwindet
-    */
-   public void setMsDelete(int msDelete_) {
-      this.msDelete=msDelete_;
-   }
-   /**
-    * @return msAnimation
-    */
-   public int getMsAnimation() {
-      return msAnimation;
-   }
-   /**
-    * @param msAnimation_
-    *           Zeit für jeden Bewegungsschritt
-    */
-   public void setMsAnimation(int msAnimation_) {
-      this.msAnimation=msAnimation_;
-   }
-   /**
-    * Das Objekt kann einen kurzen Namen für die Anzeige liefern
-    * 
-    * @author Andreas Kielkopf
-    *
-    */
-   public interface hasName {
-      public String getName();
-   }
-
-   /**
-    * Enfaches Paar von 2 Objekten eines vorgegebenen Typs
-    *
-    * @author Andreas Kielkopf
-    * @param <T1>
-    *           a
-    * @param <T2>
-    *           b
-    *
-    */
-   private class Pair<T1, T2> {
-      @SuppressWarnings("null") private T1 a=null;
-      @SuppressWarnings("null") private T2 b=null;
-      Pair(T1 a_, T2 b_) {
-         setA(a_);
-         setB(b_);
-      }
-      T1 getA() {
-         return a;
-      }
-      void setA(T1 a_) {
-         if (a_ instanceof final T1 t1)
-            a=t1;
-      }
-      T2 getB() {
-         return b;
-      }
-      void setB(T2 b_) {
-         if (b_ instanceof final T2 t2)
-            b=t2;
-      }
+   private static int speed(int a, int b) {
+      if (a == b)
+         return 0;
+      final var c=a > b;
+      final var d=c ? a - b : b - a;
+      final var e=32 - Integer.numberOfLeadingZeros(d);
+      return d < 4 ? c ? 1 : -1 : c ? e * 2 : -e * 2; // Schritte je nach Abstand
    }
 }
