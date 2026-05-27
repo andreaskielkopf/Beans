@@ -19,7 +19,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 
 import de.uhingen.kielkopf.andreas.beans.backsnap.hasColor;
-import de.uhingen.kielkopf.andreas.beans.data.SimplePair;
 
 /**
  * Ein JPanel, das eine Reihe von Objekten ohne Layoutmanager darstellt.
@@ -28,32 +27,33 @@ import de.uhingen.kielkopf.andreas.beans.data.SimplePair;
  * 
  * @author Andreas Kielkopf
  * @param <T>
+ *           Objekte die Dargestellt werden
  *
  */
 public class AnimatedPanel<T> extends JPanel {
-   private static final long                                       serialVersionUID=-5558790745879049923L;
+   private static final long                                 serialVersionUID=6254515647851855442L;
    /// JLabel zum eigentlichen Zeichnen
-   private JLabel                                                  delegate;
+   private JLabel                                            delegate;
    /// JLabel zum Berechnen der Größe
-   private JLabel                                                  shadow;
+   private JLabel                                            shadow;
    /// Liste der zu zeichnenden Objekte mit ihrer Position als int
-   private final ConcurrentSkipListMap<T, SimplePair<Long, Point>> componenten     =new ConcurrentSkipListMap<>();
+   private final ConcurrentSkipListMap<T, Pair<Long, Point>> componenten     =new ConcurrentSkipListMap<>();
    /// Währed der Animation zum löschen
-   private final ConcurrentSkipListMap<T, SimplePair<Long, Point>> inDeletion      =new ConcurrentSkipListMap<>();
+   private final ConcurrentSkipListMap<T, Pair<Long, Point>> inDeletion      =new ConcurrentSkipListMap<>();
    /// Die Animation soll nur laufen wenn nötig, und nur einmalig
-   private final AtomicBoolean                                     animationRunning=new AtomicBoolean(false);
-   private int                                                     lh              =100;
-   private final int                                               w               =500;
-   private final int                                               h               =500;
-   private final int                                               hgap            =5;
-   private final int                                               vgap            =5;
+   private final AtomicBoolean                               animationRunning=new AtomicBoolean(false);
+   private int                                               lh              =100;
+   private final int                                         w               =500;
+   private final int                                         h               =500;
+   private final int                                         hgap            =5;
+   private final int                                         vgap            =5;
    /// Bisherige Breite
-   private int                                                     oWidth          =w;
+   private int                                               oWidth          =w;
    /// Breite des anzeigbaren Bereichs
-   private int                                                     vWidth          =w;
-   private int                                                     msAnimation     =25;
-   private int                                                     msDelete        =25000;
-   private int                                                     vHeight         =h;
+   private int                                               vWidth          =w;
+   private int                                               msAnimation     =25;
+   private int                                               msDelete        =25000;
+   private int                                               vHeight         =h;
    /**
     * Create the panel.
     */
@@ -67,7 +67,7 @@ public class AnimatedPanel<T> extends JPanel {
       setPreferredSize(new Dimension(w, h));
    }
    /**
-    * Berechne die genaue Position für jedes Element anhand seiner Breite
+    * Berechne die relative Position für jedes Element anhand seiner Breite
     *
     * @param pwn
     * @return
@@ -76,17 +76,17 @@ public class AnimatedPanel<T> extends JPanel {
    private void recalculateChildren() {
       var lpos=0L;
       if (getShadow() instanceof JLabel) {
-         for (final Entry<T, SimplePair<Long, Point>> e:componenten.entrySet())
+         for (final Entry<T, Pair<Long, Point>> e:componenten.entrySet())
             lpos=calculate(lpos, e);
-         for (final Entry<T, SimplePair<Long, Point>> e:inDeletion.entrySet())
+         for (final Entry<T, Pair<Long, Point>> e:inDeletion.entrySet())
             lpos=calculate(lpos, e);
       }
       animate();
    }
-   private long calculate(long lpos_, final Entry<T, SimplePair<Long, Point>> e) {
+   private long calculate(long lpos_, final Entry<T, Pair<Long, Point>> e) {
       long lp=lpos_;
       if (e.getKey() instanceof final T key) {
-         getShadow().setText(key.toString());
+         getShadow().setText(key instanceof hasName hn ? hn.getName() : key.toString());
          var lWidth=getShadow().getPreferredSize().width;
          final var r=(int) (lp % vWidth);
          if (r + lWidth >= vWidth) {// Umbruch noch in diesem Label
@@ -103,12 +103,12 @@ public class AnimatedPanel<T> extends JPanel {
       return lp;
    }
    /**
-    * Berene die nächste animierte Position die gewünscht ist, und bewege das Objekt auch
+    * Berechne die nächste animierte Position die gewünscht ist, und bewege das Objekt auch dorthin
     * 
     * @param value
     * @return wurde es bewegt ?
     */
-   private boolean move(SimplePair<Long, Point> value) {
+   private boolean move(Pair<Long, Point> value) {
       final var lpos=value.getA();
       var changed=false;
       var x=value.getB().x;
@@ -156,12 +156,12 @@ public class AnimatedPanel<T> extends JPanel {
                do {
                   Thread.sleep(getMsAnimation());
                   count=componenten.size() + inDeletion.size();
-                  for (final Entry<T, SimplePair<Long, Point>> e:componenten.entrySet())
-                     if (e.getValue() instanceof final SimplePair<Long, Point> value)
+                  for (final Entry<T, Pair<Long, Point>> e:componenten.entrySet())
+                     if (e.getValue() instanceof final Pair<Long, Point> value)
                         if (!move(value))
                            count--;
-                  for (final Entry<T, SimplePair<Long, Point>> e:inDeletion.entrySet())
-                     if (e.getValue() instanceof final SimplePair<Long, Point> value)
+                  for (final Entry<T, Pair<Long, Point>> e:inDeletion.entrySet())
+                     if (e.getValue() instanceof final Pair<Long, Point> value)
                         if (!move(value))
                            count--;
                   repaint(100);
@@ -189,9 +189,9 @@ public class AnimatedPanel<T> extends JPanel {
          final var d=getDelegate();
          var di=d.getPreferredSize();
          lh=di.height + hgap;
-         for (final Entry<T, SimplePair<Long, Point>> e:componenten.entrySet())
+         for (final Entry<T, Pair<Long, Point>> e:componenten.entrySet())
             paintChild(g2d, e, false); // aktive Elemente
-         for (final Entry<T, SimplePair<Long, Point>> e:inDeletion.entrySet())
+         for (final Entry<T, Pair<Long, Point>> e:inDeletion.entrySet())
             paintChild(g2d, e, true); // gelöschte Elemente invers
       }
       super.paintChildren(g);
@@ -202,10 +202,10 @@ public class AnimatedPanel<T> extends JPanel {
     * @param e
     * @param deleted
     */
-   private void paintChild(Graphics2D g2d, final Entry<T, SimplePair<Long, Point>> e, final boolean deleted) {
+   private void paintChild(Graphics2D g2d, final Entry<T, Pair<Long, Point>> e, final boolean deleted) {
       if (e.getKey() instanceof final T k) {
          JLabel d=getDelegate();
-         d.setText(k.toString()); /// Text setzen
+         d.setText(k instanceof hasName hn ? hn.getName() : k.toString()); /// Text setzen
          if (k instanceof final hasColor kc) {
             Color f=(kc.getForeground() instanceof final Color c ? c : Color.BLACK);
             Color b=(kc.getBackground() instanceof final Color c ? c : Color.WHITE);
@@ -216,7 +216,7 @@ public class AnimatedPanel<T> extends JPanel {
          final var x=point.x;
          final var y=point.y;
          Dimension di=d.getPreferredSize();
-         if ((x > 0 && x + di.width < vWidth) && (y > 0 && y + di.height < vHeight)) {
+         if ((x >= 0 && x + di.width <= vWidth) && (y >= 0 && y  <= vHeight)) {
             SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
          }
       }
@@ -253,8 +253,7 @@ public class AnimatedPanel<T> extends JPanel {
     *           Element to add
     */
    public void add(T t) {
-      if (!componenten.containsKey(t)
-               && (new SimplePair<>(1L, new Point(10, 10)) instanceof final SimplePair<Long, Point> pair)) {
+      if (!componenten.containsKey(t) && (new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair)) {
          componenten.put(t, pair);
          recalculateChildren();
       }
@@ -269,7 +268,7 @@ public class AnimatedPanel<T> extends JPanel {
          recalculateChildren();
          Thread.startVirtualThread(() -> {
             try {
-               Thread.currentThread().setName("delete " + t.toString());
+               Thread.currentThread().setName("delete " + (t instanceof hasName hn ? hn.getName() : t.toString()));
                Thread.sleep(getMsDelete());
                if (inDeletion.containsKey(t))
                   inDeletion.remove(t);
@@ -303,5 +302,47 @@ public class AnimatedPanel<T> extends JPanel {
     */
    public void setMsAnimation(int msAnimation_) {
       this.msAnimation=msAnimation_;
+   }
+   /**
+    * Das Objekt kann einen kurzen Namen für die Anzeige liefern
+    * 
+    * @author Andreas Kielkopf
+    *
+    */
+   public interface hasName {
+      public String getName();
+   }
+
+   /**
+    * Enfaches Paar von 2 Objekten eines vorgegebenen Typs
+    *
+    * @author Andreas Kielkopf
+    * @param <T1>
+    *           a
+    * @param <T2>
+    *           b
+    *
+    */
+   private class Pair<T1, T2> {
+      @SuppressWarnings("null") private T1 a=null;
+      @SuppressWarnings("null") private T2 b=null;
+      Pair(T1 a_, T2 b_) {
+         setA(a_);
+         setB(b_);
+      }
+      T1 getA() {
+         return a;
+      }
+      void setA(T1 a_) {
+         if (a_ instanceof final T1 t1)
+            a=t1;
+      }
+      T2 getB() {
+         return b;
+      }
+      void setB(T2 b_) {
+         if (b_ instanceof final T2 t2)
+            b=t2;
+      }
    }
 }
