@@ -159,11 +159,11 @@ public class AnimatedPanel<T> extends JPanel {
             repaint(1000);
          });
    }
-   private long calculate(long lpos_, final Entry<T, Pair<Long, Point>> e) {
+   private long calculate(JLabel sdw2, long lpos_, final Entry<T, Pair<Long, Point>> e) {
       var lp=lpos_;
       if (e.getKey() instanceof final T key) {
-         getShadow().setText(key instanceof final hasName hn ? hn.getName() : key.toString());
-         final var lWidth=getShadow().getPreferredSize().width;
+         sdw2.setText(key instanceof final hasName hn ? hn.getName() : key.toString());
+         final var lWidth=sdw2.getPreferredSize().width;
          final var r=(int) (lp % vWidth);
          if (r + lWidth >= vWidth) {// Umbruch noch in diesem Label
             lp+=vWidth - r; // an den Anfang der nächsten Zeile
@@ -243,12 +243,13 @@ public class AnimatedPanel<T> extends JPanel {
     */
    private void recalculateChildren() {
       var lpos=0L;
-      if (getShadow() instanceof JLabel) {
-         for (final Entry<T, Pair<Long, Point>> e:allItems.entrySet())
-            lpos=calculate(lpos, e);
-         for (final Entry<T, Pair<Long, Point>> e:deletedItems.entrySet())
-            lpos=calculate(lpos, e);
-      }
+      if (getShadow() instanceof final JLabel sdw)
+         synchronized (sdw) {
+            for (final Entry<T, Pair<Long, Point>> e:allItems.entrySet())
+               lpos=calculate(sdw, lpos, e);
+            for (final Entry<T, Pair<Long, Point>> e:deletedItems.entrySet())
+               lpos=calculate(sdw, lpos, e);
+         }
       animate();
    }
    /**
