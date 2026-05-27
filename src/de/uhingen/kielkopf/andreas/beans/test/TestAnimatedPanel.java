@@ -21,6 +21,7 @@ import javax.swing.border.TitledBorder;
 
 import de.uhingen.kielkopf.andreas.beans.backsnap.hasColor;
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel;
+import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.hasName;
 import de.uhingen.kielkopf.andreas.beans.gui.FrameHelper;
 
 /**
@@ -61,9 +62,9 @@ public class TestAnimatedPanel {
       getAnimatedPanel().getDelegate().setBackground(Color.YELLOW.brighter());
       Thread.startVirtualThread(() -> {
          try {
-            Thread.currentThread().setName("Insert Objects");
+            Thread.currentThread().setName(getClass().getSimpleName()+" Insert");
             final var sr=SecureRandom.getInstanceStrong();
-            for (var i=0; i < 2000; i++) {
+            for (var i=0; i < 1000; i++) {
                final var j=i;
                SwingUtilities.invokeLater(() -> {
                   getAnimatedPanel().add(new ColorInteger(sr.nextInt() % 4000 + j));
@@ -71,7 +72,7 @@ public class TestAnimatedPanel {
                   getAnimatedPanel_2().add(new ColorInteger(sr.nextInt() % 400 + j));
                   getAnimatedPanel_3().add(new ColorInteger(sr.nextInt() % 1000 + j));
                });
-               Thread.sleep(i / 10 + 5);
+               Thread.sleep(i / 5 + 10);
             }
          } catch (InterruptedException | NoSuchAlgorithmException e) {
             e.printStackTrace();
@@ -79,16 +80,16 @@ public class TestAnimatedPanel {
       });
       Thread.startVirtualThread(() -> {
          try {
-            Thread.currentThread().setName("Delete Objects");
+            Thread.currentThread().setName(getClass().getSimpleName()+" Delete");
             final var sr=SecureRandom.getInstanceStrong();
-            for (var i=0; i < 10000; i++) {
+            for (var i=0; i < 5000; i++) {
                SwingUtilities.invokeLater(() -> {
                   getAnimatedPanel().delete(new ColorInteger(sr.nextInt() % 4000));
                   getAnimatedPanel_1().delete(new ColorInteger(sr.nextInt() % 2000));
                   getAnimatedPanel_2().delete(new ColorInteger(sr.nextInt() % 400));
                   getAnimatedPanel_3().delete(new ColorInteger(sr.nextInt() % 1000));
                });
-               Thread.sleep(i / 10 + 15);
+               Thread.sleep(i / 5 + 25);
             }
          } catch (InterruptedException | NoSuchAlgorithmException e) {
             e.printStackTrace();
@@ -123,7 +124,7 @@ public class TestAnimatedPanel {
       }
       return animatedPanel;
    }
-   private static class ColorInteger implements hasColor, Comparable<ColorInteger> {
+   private static class ColorInteger implements hasName, hasColor, Comparable<ColorInteger> {
       final int i;
       /**
        * Farbiger Integer, für Tests
@@ -145,27 +146,39 @@ public class TestAnimatedPanel {
       }
       @Override
       public int compareTo(ColorInteger o) {
-         return Integer.compare(i, o.i);
+         return Integer.compareUnsigned(i, o.i);
+      }
+      @Override
+      public String getName() {
+         return "0x" + Integer.toHexString(i).toUpperCase();
       }
    }
    private AnimatedPanel<ColorInteger> getAnimatedPanel_1() {
       if (animatedPanel_1 == null) {
          animatedPanel_1=new AnimatedPanel<>();
-         animatedPanel_1.setMsDelete(55000);
+         animatedPanel_1.setMsDelete(15000);
+         animatedPanel_1.getDelegate().setBorder(
+                  new TitledBorder(null, "Title", TitledBorder.LEADING, TitledBorder.TOP, null, null));
+         animatedPanel_1.getShadow().setBorder(
+                  new TitledBorder(null, "Title", TitledBorder.LEADING, TitledBorder.TOP, null, null));
       }
       return animatedPanel_1;
    }
    private AnimatedPanel<ColorInteger> getAnimatedPanel_2() {
       if (animatedPanel_2 == null) {
          animatedPanel_2=new AnimatedPanel<>();
-         animatedPanel_2.setMsDelete(55000);
+         animatedPanel_2.setMsDelete(60000);
+         animatedPanel_2.setMsAnimation(50);
       }
       return animatedPanel_2;
    }
    private AnimatedPanel<ColorInteger> getAnimatedPanel_3() {
       if (animatedPanel_3 == null) {
          animatedPanel_3=new AnimatedPanel<>();
-         animatedPanel_3.setMsDelete(55000);
+         animatedPanel_3.setMsDelete(5000);
+         animatedPanel_3.setMsAnimation(10);
+         animatedPanel_3.getDelegate().setBorder(new SoftBevelBorder(BevelBorder.LOWERED, null, null, null, null));
+         animatedPanel_3.getShadow().setBorder(new SoftBevelBorder(BevelBorder.LOWERED, null, null, null, null));
       }
       return animatedPanel_3;
    }
