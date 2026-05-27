@@ -11,6 +11,7 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -39,22 +40,22 @@ public class AnimatedPanel<T> extends JPanel {
    /// Die Animation soll nur laufen wenn nötig, und nur einmalig
    private final AtomicBoolean                               animationRunning=new AtomicBoolean(false);
    /// Liste der zu zeichnenden Objekte mit ihrer Position als int
-   private final ConcurrentSkipListMap<T, Pair<Long, Point>> allItems        =new ConcurrentSkipListMap<>();
+   final ConcurrentSkipListMap<T, Pair<Long, Point>>         allItems        =new ConcurrentSkipListMap<>();
    /// JLabel zum eigentlichen Zeichnen
    private JLabel                                            delegate;
    private final LinkedBlockingQueue<Pair<Long, T>>          deleteQueue     =new LinkedBlockingQueue<>();
-   private final ConcurrentSkipListSet<T>                    selectedItems   =new ConcurrentSkipListSet<>();
+   ConcurrentSkipListSet<T>                                  selectedItems   =null;
    private final AtomicBoolean                               deletionRunning =new AtomicBoolean(false);
    private final int                                         h               =500;
-   private final int                                         hgap            =5;
+   final int                                                 hgap            =5;
    /// Währed der Animation zum löschen
    private final ConcurrentSkipListMap<T, Pair<Long, Point>> deletedItems    =new ConcurrentSkipListMap<>();
-   private int                                               rowHeight       =100;
+   int                                                       rowHeight       =100;
    private int                                               msAnimation     =25;
    private int                                               msDelete        =25000;
    /// JLabel zum Berechnen der Größe
    private JLabel                                            shadow;
-   private final int                                         vgap            =5;
+   final int                                                 vgap            =5;
    private int                                               vHeight         =h;
    private final int                                         w               =500;
    /// Bisherige Breite
@@ -77,7 +78,7 @@ public class AnimatedPanel<T> extends JPanel {
     *           b
     *
     */
-   private class Pair<T1, T2> {
+   class Pair<T1, T2> {
       @SuppressWarnings("null") private T1 a=null;
       @SuppressWarnings("null") private T2 b=null;
       Pair(T1 a_, T2 b_) {
@@ -184,35 +185,6 @@ public class AnimatedPanel<T> extends JPanel {
    */
    private void init() {
       setPreferredSize(new Dimension(w, h));
-      addMouseListener(new MouseAdapter() {
-         @Override
-         public void mousePressed(MouseEvent e) {
-            mP(e);
-            super.mousePressed(e);
-         }
-         private void mP(MouseEvent e) {
-            e.translatePoint(-getInsets().left - hgap, -getInsets().top - vgap);
-            final var p=e.getPoint();
-            Entry<T, AnimatedPanel<T>.Pair<Long, Point>> treffer=null;
-            for (final Entry<T, AnimatedPanel<T>.Pair<Long, Point>> entry:allItems.entrySet()) {
-               final var b=entry.getValue().b;
-               if (p.y >= b.y && p.y <= b.y + rowHeight && p.x >= b.x)
-                  if (!(treffer instanceof final Entry<T, AnimatedPanel<T>.Pair<Long, Point>> tr)
-                           || tr.getValue() instanceof final Pair<Long, Point> tp && tp.b instanceof final Point tpb
-                                    && b.x >= tpb.x)
-                     treffer=entry;
-            }
-            if (treffer instanceof final Entry<T, AnimatedPanel<T>.Pair<Long, Point>> tr
-                     && tr.getKey() instanceof T key) {
-               if (!selectedItems.add(key)) // hinzufügen oder entfernen
-                  selectedItems.remove(key);
-               repaint(100);
-               e.consume();
-               System.out.println(
-                        (key instanceof final hasName hn ? hn.getName() : key.toString()) + " @ " + p.x + ":" + p.y);
-            }
-         }
-      });
    }
    /**
     * Berechne die nächste animierte Position die gewünscht ist, und bewege das Objekt auch dorthin
@@ -250,7 +222,7 @@ public class AnimatedPanel<T> extends JPanel {
          final var d=getDelegate();
          d.setText(k instanceof final hasName hn ? hn.getName() : k.toString()); /// Text setzen
          if (k instanceof final hasColors kc) {
-            final var s=selectedItems.contains(k);
+            final var s=(selectedItems == null) ? false : selectedItems.contains(k);
             final var f=kc.getForeground(s) instanceof final Color c ? c : Color.BLACK;
             final var b=kc.getBackground(s) instanceof final Color c ? c : Color.WHITE;
             d.setForeground(deleted ? b : f);
@@ -286,10 +258,24 @@ public class AnimatedPanel<T> extends JPanel {
     *           Element to add
     */
    public void add(T t) {
-      if (!allItems.containsKey(t) && new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair) {
+      boolean change=!allItems.containsKey(t);
+      if (change && new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair) {
          allItems.put(t, pair);
          recalculateChildren();
       }
+   }
+   public void addAll(Collection<T> values) {
+      boolean changed=false;
+      for (T t:values)
+         if (!allItems.containsKey(t) && new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair) {
+            allItems.put(t, pair);
+            changed=true;
+         }
+      if (changed)
+         recalculateChildren();
+   }
+   public Set<T> getAll() {
+      return Collections.unmodifiableSet(allItems.keySet());
    }
    /**
     * @param t
@@ -311,7 +297,7 @@ public class AnimatedPanel<T> extends JPanel {
                         Thread.sleep(a);
                      if (deletedItems.containsKey(i.b))
                         deletedItems.remove(i.b);
-                     if (selectedItems.contains(i.b))
+                     if (selectedItems != null && selectedItems.contains(i.b))
                         selectedItems.remove(i.b);
                      recalculateChildren();
                   }
@@ -319,23 +305,6 @@ public class AnimatedPanel<T> extends JPanel {
                deletionRunning.set(false);
             });
       }
-   }
-   /**
-    * Ergibt das Set mit allen selected Values
-    * 
-    * @return
-    */
-   public Set<T> getSelectedValues() {
-      return Collections.unmodifiableSet(selectedItems);
-   }
-   /**
-    * Setzt das Set mit allen selected Values
-    * 
-    * @return
-    */
-   public void setSelectedValues(Set<T> values) {
-      selectedItems.clear();
-      selectedItems.addAll(values);
    }
    /**
     * Dieses JLabel wird zum Zeichnen verwendet

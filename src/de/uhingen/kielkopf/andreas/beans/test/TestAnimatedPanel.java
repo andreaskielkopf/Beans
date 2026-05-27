@@ -23,6 +23,7 @@ import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel;
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.hasColors;
 import de.uhingen.kielkopf.andreas.beans.gui.AnimatedPanel.hasName;
 import de.uhingen.kielkopf.andreas.beans.gui.FrameHelper;
+import de.uhingen.kielkopf.andreas.beans.gui.SelectableAnimatedPanel;
 
 /**
  * Test-Application für AnimatedPanel
@@ -119,7 +120,7 @@ public class TestAnimatedPanel {
    }
    private AnimatedPanel<ColorInteger> getAnimatedPanel() {
       if (animatedPanel == null) {
-         animatedPanel=new AnimatedPanel<>();
+         animatedPanel=new SelectableAnimatedPanel<>();
          animatedPanel.setMsDelete(55000);// 55 Sekunden
       }
       return animatedPanel;
@@ -155,7 +156,7 @@ public class TestAnimatedPanel {
    }
    private AnimatedPanel<ColorInteger> getAnimatedPanel_1() {
       if (animatedPanel_1 == null) {
-         animatedPanel_1=new AnimatedPanel<>();
+         animatedPanel_1=new SelectableAnimatedPanel<>();
          animatedPanel_1.setMsDelete(15000);
          animatedPanel_1.getDelegate()
                   .setBorder(new TitledBorder(null, "Title", TitledBorder.LEADING, TitledBorder.TOP, null, null));
