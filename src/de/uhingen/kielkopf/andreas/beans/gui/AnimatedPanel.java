@@ -11,6 +11,7 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JLabel;
@@ -40,8 +41,10 @@ public class AnimatedPanel<T> extends JPanel {
    private final ConcurrentSkipListMap<T, Pair<Long, Point>> componenten     =new ConcurrentSkipListMap<>();
    /// Währed der Animation zum löschen
    private final ConcurrentSkipListMap<T, Pair<Long, Point>> inDeletion      =new ConcurrentSkipListMap<>();
+   private final LinkedBlockingQueue<Pair<Long, T>>          deleteQueue     =new LinkedBlockingQueue<>();
    /// Die Animation soll nur laufen wenn nötig, und nur einmalig
    private final AtomicBoolean                               animationRunning=new AtomicBoolean(false);
+   private final AtomicBoolean                               deletionRunning =new AtomicBoolean(false);
    private int                                               lh              =100;
    private final int                                         w               =500;
    private final int                                         h               =500;
@@ -151,7 +154,7 @@ public class AnimatedPanel<T> extends JPanel {
       if (animationRunning.compareAndSet(false, true))
          Thread.startVirtualThread(() -> {
             try {
-               Thread.currentThread().setName("Animate Objects");
+               Thread.currentThread().setName(getClass().getSimpleName()+" Animate");
                var count=0;
                do {
                   Thread.sleep(getMsAnimation());
@@ -216,7 +219,7 @@ public class AnimatedPanel<T> extends JPanel {
          final var x=point.x;
          final var y=point.y;
          Dimension di=d.getPreferredSize();
-         if ((x >= 0 && x + di.width <= vWidth) && (y >= 0 && y  <= vHeight)) {
+         if ((x >= 0 && x + di.width <= vWidth) && (y >= 0 && y <= vHeight)) {
             SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
          }
       }
@@ -265,16 +268,25 @@ public class AnimatedPanel<T> extends JPanel {
    public void delete(T t) {
       if (t instanceof T && componenten.containsKey(t)) {
          inDeletion.put(t, componenten.remove(t));
+         deleteQueue.offer(new Pair<Long, T>(System.currentTimeMillis() + getMsDelete(), t));
          recalculateChildren();
-         Thread.startVirtualThread(() -> {
-            try {
-               Thread.currentThread().setName("delete " + (t instanceof hasName hn ? hn.getName() : t.toString()));
-               Thread.sleep(getMsDelete());
-               if (inDeletion.containsKey(t))
-                  inDeletion.remove(t);
-               recalculateChildren();
-            } catch (InterruptedException e) { /* */ }
-         });
+         if (deletionRunning.compareAndSet(false, true))
+            Thread.startVirtualThread(() -> {
+               Thread.currentThread().setName(getClass().getSimpleName()+" Deleter");
+               try {
+                  while (!deleteQueue.isEmpty()) {
+                     AnimatedPanel<T>.Pair<Long, T> i=deleteQueue.take();
+                     long a=i.a - System.currentTimeMillis();
+                     if (a > 0)
+                        Thread.sleep(a);
+                     T b=i.b;
+                     if (inDeletion.containsKey(b))
+                        inDeletion.remove(b);
+                     recalculateChildren();
+                  }
+               } catch (InterruptedException e) { /* */ }
+               deletionRunning.set(false);
+            });
       }
    }
    /**
