@@ -1,15 +1,16 @@
 /**
- * 
+ *
  */
 package de.uhingen.kielkopf.andreas.beans.shell;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentLinkedDeque;
+
+import de.uhingen.kielkopf.andreas.beans.shell.Do.ProcessOutputQueue;
 
 /**
  * @author Andreas Kielkopf
- * 
+ *
  *         Objekt um die Auswertung von stdout und stderr zu erleichtern
  */
 public abstract class Worker {
@@ -17,22 +18,22 @@ public abstract class Worker {
    final private static long start=System.currentTimeMillis();
    /**
     * Verarbeite eine Zeile des Output
-    * 
+    *
     * @param line
     */
    abstract public void processLine(String line);
    /**
     * Gib die ArrayList mit den Ergebnissen her
-    * 
+    *
     * @return
     */
-   public ConcurrentLinkedDeque<String> get() {
+   public ProcessOutputQueue<String> get() {
       if (erg == null)
-         erg=new ConcurrentLinkedDeque<>();
+         erg=new ProcessOutputQueue<>();
       return erg;
    }
    public String getFirst() {
-      return (erg instanceof ConcurrentLinkedDeque<String> al && (!al.isEmpty())) ? al.getFirst() : "";
+      return erg instanceof final ProcessOutputQueue<String> al && !al.isEmpty() ? al.getFirst() : "";
    }
    public Worker withVirtual(BufferedReader br) {
       busy=true;
@@ -53,12 +54,12 @@ public abstract class Worker {
       return () -> {
          try {
             if (kennung == null)
-               while (br.readLine() instanceof String line)
+               while (br.readLine() instanceof final String line)
                   processLine(line);
             else
-               while (br.readLine() instanceof String line)
+               while (br.readLine() instanceof final String line)
                   processLine(kennung + line);
-         } catch (IOException e) {
+         } catch (final IOException e) {
             System.err.println(e.getMessage());
             e.printStackTrace();
          } finally {
@@ -73,10 +74,10 @@ public abstract class Worker {
             Thread.onSpinWait();
             Thread.sleep(1);
          }
-      } catch (InterruptedException ignore) {/* */ }
+      } catch (final InterruptedException ignore) {/* */ }
       return this;
    }
-   private ConcurrentLinkedDeque<String> erg;
+   private ProcessOutputQueue<String> erg;
    /** Ein Worker der alles abholt und verwirft (shared) */
    final public static Worker nullWorker() {
       if (sharedNullWorker == null)
@@ -154,10 +155,10 @@ public abstract class Worker {
    /* Füge einen Timestamp ein */
    static private String withTS(String line) {
       // try { Thread.sleep(1000); } catch (InterruptedException e) {/* */ }
-      int ms=(int) (System.currentTimeMillis() - start);
-      int s=ms / 1000;
-      int m=s / 60;
-      int h=m / 60; // ms%=1000; s%=60; m%=60; h%=24;
+      final var ms=(int) (System.currentTimeMillis() - start);
+      final var s=ms / 1000;
+      final var m=s / 60;
+      final var h=m / 60; // ms%=1000; s%=60; m%=60; h%=24;
       return new StringBuilder(line).insert(0, //
                String.format("[%2d%2d%2d.%3d] ", h % 24, m % 60, s % 60, ms % 1000)).toString();
    }
