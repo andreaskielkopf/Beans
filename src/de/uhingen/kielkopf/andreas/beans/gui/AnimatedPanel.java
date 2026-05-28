@@ -260,7 +260,7 @@ public class AnimatedPanel<T> extends JPanel {
       final var change=!allItems.containsKey(t);
       if (change && new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair) {
          allItems.put(t, pair);
-         recalculateChildren();
+         invalidate();
       }
    }
    public void addAll(Collection<T> values) {
@@ -271,7 +271,7 @@ public class AnimatedPanel<T> extends JPanel {
             changed=true;
          }
       if (changed)
-         recalculateChildren();
+         invalidate();
    }
    public Set<T> getAll() {
       return Collections.unmodifiableSet(allItems.keySet());
@@ -284,7 +284,7 @@ public class AnimatedPanel<T> extends JPanel {
       if (t instanceof T && allItems.containsKey(t)) {
          deletedItems.put(t, allItems.remove(t));
          deleteQueue.offer(new Pair<>(System.currentTimeMillis() + getMsDelete(), t));
-         recalculateChildren();
+         invalidate();
          if (deletionRunning.compareAndSet(false, true))
             Thread.startVirtualThread(() -> {
                Thread.currentThread().setName(getClass().getSimpleName() + " Deleter");
@@ -298,7 +298,7 @@ public class AnimatedPanel<T> extends JPanel {
                         deletedItems.remove(i.b);
                      if (selectedItems != null && selectedItems.contains(i.b))
                         selectedItems.remove(i.b);
-                     recalculateChildren();
+                     invalidate();
                   }
                } catch (final InterruptedException _) { /* */ }
                deletionRunning.set(false);
@@ -395,5 +395,10 @@ public class AnimatedPanel<T> extends JPanel {
       final var d=c ? a - b : b - a;
       final var e=32 - Integer.numberOfLeadingZeros(d);
       return d < 4 ? c ? 1 : -1 : c ? e * 2 : -e * 2; // Schritte je nach Abstand
+   }
+   @Override
+   public void invalidate() {
+      oWidth=0; // Ändert die oWidth um ein recalculateChildren() beim neuzeichnen zu erzwingen
+      super.invalidate();
    }
 }
