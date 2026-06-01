@@ -3,6 +3,8 @@
  */
 package de.uhingen.kielkopf.andreas.beans.test;
 
+import java.util.List;
+
 import de.uhingen.kielkopf.andreas.beans.shell.Do;
 import de.uhingen.kielkopf.andreas.beans.shell.DoCached;
 
@@ -15,7 +17,7 @@ public class TestDoCached {
     * main als Programmtest
     *
     * @param args
-    * @throws InterruptedException 
+    * @throws InterruptedException
     */
    public static void main(String[] args) throws InterruptedException {
       // System.out.println("Das ist ein Testprogramm das teils absichtlich Fehler provoziert");
@@ -27,8 +29,16 @@ public class TestDoCached {
       // System.out.println(Do.doGetFirstOr("whoa_i", "Ein solches Programm gibt es nicht"));
       // System.out.println(Do.doGetFirstOr("whoa i", "Ein solches Programm gibt es nicht"));
       // System.out.println(Do.doGetFirstOr("-c", "whoami", "kein Fehler ;-)")); // mit shell
-      Do.doCmd("ls", "-lA", "/home"); // cmd + parameter
+      // Do.doCmd("ls", "-lA", "/home"); // cmd + parameter
+//      Thread.sleep(1000);
       DoCached.doCmd("ls", "-lA", "/home"); // cmd + parameter
+      // DoCached.doCmd("/bin/sh", "-c", "echo \"$SHELL\""); // cmd + parameter
+      // DoCached.doCmd("/bin/sh", "-c", "echo ${SHELL}"); // cmd + parameter
+      System.out.println("---------------");
+      DoCached.doCmd("ls", "-lA", "/home"); // cmd + parameter
+      // String n=DoCached.getFirstOr(List.of("/bin/sh", "-c", "echo ${SHELL}"), "nothing");
+      // System.out.println("n: "+n);
+      // DoCached.doCmd("ls", "-lA", "/home"); // cmd + parameter
       // Do.doCmd("ls -lA /home"); // cmd + parameter
       // Do.doCmd("ls -lA /hom*"); // cmd + parameter mit glob OK
       // Do.doCmd("ls", "-lA", "/hom*"); // cmd + parameter mit glob geht nicht !!!
@@ -67,6 +77,6 @@ public class TestDoCached {
       // // System.out.println(line);
       // System.out.println("++++++++++++");
       // System.out.println("Das ist ein Testprogramm das teils absichtlich Fehler provoziert");
-      Thread.sleep(10000);
+      Thread.sleep(5000);
    }
 }
