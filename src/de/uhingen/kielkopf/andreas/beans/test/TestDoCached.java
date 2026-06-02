@@ -22,7 +22,7 @@ public class TestDoCached {
       // System.out.println("Das ist ein Testprogramm das teils absichtlich Fehler provoziert");
       Thread.sleep(1000);
       System.out.println();
-      DoCached.asynchron.set(false);
+      DoCached.defaultAsynchron.set(false);
       DoCached.defaultCacheMs.set(60 * 1000); // 60 Sekunden ablaufzeit für den cache
       // Das folgende sind alles Musterzeilen für mögliche Nutzung von Do
       System.out.println(DoCached.getFirstOr("whoami", "niemand (kein Fehler)"));
@@ -51,6 +51,10 @@ public class TestDoCached {
       DoCached.doCmd("ls", "-lA", "s"); // alles über sterr ausgeben
       DoCached.doCmd("ls -lA /home|grep -E ^drwx|sort -nk 5");
       DoCached.doCmd("ls -lA /home"); // cmd + parameter
+      DoCached.doCmd("ls", "-lA", "/tmp", DoCached.CACHE_MS + "10000", DoCached.ASYNC, DoCached.REFRESH); // alles über sterr ausgeben
+      DoCached.doCmd("ls", "-lA", "/tmp", DoCached.CACHE_MS + "0", DoCached.SYNC); // alles über sterr ausgeben
+      DoCached.doCmd("ls", "-lA", "/tmp", DoCached.CACHE_MS + "5000", DoCached.SYNC, DoCached.REFRESH); // alles über sterr ausgeben
+      DoCached.doCmd("ls", "-lA", "/tmp", DoCached.CACHE_MS + "60_000", DoCached.ASYNC); // alles über sterr ausgeben
       Thread.sleep(1000);
       System.out.println("++++++++++++");
       System.out.println(DoCached.getFirstOr("whoami", "niemand (kein Fehler)"));

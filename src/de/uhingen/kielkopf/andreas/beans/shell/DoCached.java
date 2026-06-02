@@ -20,33 +20,32 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  */
 public class DoCached implements Runnable {
-   private ProcessQueues2<String>       first=new ProcessQueues2<>();
-   private ProcessQueue2<String>        c1   =new ProcessQueue2<>();
-   Process                              process;
-   private CopyOnWriteArrayList<String> c2;                          // erstmal null
-   private ArrayList<String>            list;
+   final private ArrayList<String>      list;
    private long                         timeout;
-   public DoCached(List<String> cmds_) {
-      this(cmds_, defaultCacheMs.get());
-   }
+   private Process                      process;
+   final private ProcessQueuesC<String> first=new ProcessQueuesC<>();
+   private ProcessQueueC<String>        c1   =new ProcessQueueC<>();
+   private CopyOnWriteArrayList<String> c2;                          // erstmal null
    /**
     * @param cmds
     * @param l
     */
-   public DoCached(List<String> cmds_, long ms) {
+   private DoCached(ArrayList<String> cmds_, long ms, boolean async_) {
       if (cmds_.isEmpty())
          throw new NullPointerException("Es wurde kein Befehl übergeben");
       timeout=System.currentTimeMillis() + ms;
+      first.asynchron=async_;
+      list=cmds_;
       if (cleaner == null)
          cleaner=aktiviereCleaner();
-      list=cmds_ instanceof ArrayList<String> l ? l : new ArrayList<>(cmds_); // temporäre liste ohne rückwirkung
    }
+   @SuppressWarnings("resource")
    @Override
    public void run() {
       if (builder instanceof ProcessBuilder) {
          synchronized (builder) {
             try {
-               if ((list.size() == 1) && !list.getFirst().matches("[_.\\p{Alnum}]+")) { // kein einfacher Befehl mit Parametern // nur eine einzige
+               if (list.size() == 1 && !list.getFirst().matches("[_.\\p{Alnum}]+")) { // kein einfacher Befehl mit Parametern // nur eine einzige
                   // Befehlszeile
                   if (!list.getFirst().matches(".+[ ;|&].+")) // Das ist unklar
                      throw new UnsupportedOperationException(
@@ -57,15 +56,15 @@ public class DoCached implements Runnable {
                   list.addFirst(SHELL);
                process=builder.command(list).start(); // System.out.println("l:" + list);
             } catch (IOException | UnsupportedOperationException e1) {
-               String err=e1.getMessage();
-               first.err.add(err);
+               final var err=e1.getMessage();
                c1.add(err);
+               first.err.add(err);
                first.setFertig();
                timeout=System.currentTimeMillis();
                System.err.println(err); // e1.printStackTrace();
             }
          }
-         if (process instanceof Process p) {
+         if (process instanceof final Process p) {
             Thread.currentThread().setName(getClass().getSimpleName());
             /// Der ganze Empfang geschieht jetzt im Hintergrund und wandert in die queues
             Thread.startVirtualThread(() -> {
@@ -75,7 +74,7 @@ public class DoCached implements Runnable {
                      c1.add(line); // Cache füllen
                   }
                } catch (final IOException e) {
-                  System.err.println(e.getMessage() + " 1");
+                  // System.err.println(e.getMessage() + " 1");
                   if (!e.getMessage().equals("Stream closed"))
                      e.printStackTrace();
                } finally {
@@ -89,7 +88,7 @@ public class DoCached implements Runnable {
                   while (err.readLine() instanceof final String line)
                      first.err.add(line); // direkt übergeben
                } catch (final IOException e) {
-                  System.err.println(e.getMessage() + " 2");
+                  // System.err.println(e.getMessage() + " 2");
                   if (!e.getMessage().equals("Stream closed"))
                      e.printStackTrace();
                } finally {
@@ -100,32 +99,37 @@ public class DoCached implements Runnable {
             });
             try {
                p.waitFor();
-            } catch (InterruptedException e) {
+            } catch (final InterruptedException e) {
                e.printStackTrace();
             }
          }
       }
    }
-   static final private ProcessBuilder                          builder       =new ProcessBuilder();
-   static final private Map<String, String>                     env           =builder.environment();
+   static final public String                                   ASYNC           ="ASYNCHRON";
+   static final public String                                   SYNC            ="SYNCRON";
+   static final public String                                   DONT_CACHE      ="DONT_CACHE";
+   static final public String                                   REFRESH         ="REFRESH";
+   static final public String                                   CACHE_MS        ="CACHE_MS=";
+   static final private ProcessBuilder                          builder         =new ProcessBuilder();
+   static final private Map<String, String>                     env             =builder.environment();
    /// Welche Shell wird verwendet
-   static final public String                                   SHELL         =(env.get("SHELL") instanceof String sh)
+   static final public String                                   SHELL           =env.get("SHELL") instanceof final String sh
             ? sh
             : "/bin/sh";
    /// Welcher Benutzer agiert
-   static final public String                                   USERNAME      =(env.get("USER") instanceof String us)
+   static final public String                                   USERNAME        =env.get("USER") instanceof final String us
             ? us
             : "noBody";
-   static final private ConcurrentSkipListMap<String, DoCached> cache         =new ConcurrentSkipListMap<>();
+   static final private ConcurrentSkipListMap<String, DoCached> cache           =new ConcurrentSkipListMap<>();
    static private Thread                                        cleaner;
-   static final public AtomicBoolean                            asynchron     =new AtomicBoolean(true);
-   static final public AtomicLong                               defaultCacheMs=new AtomicLong(5 * 60 * 1000);         // 5 Minuten
+   static final public AtomicBoolean                            defaultAsynchron=new AtomicBoolean(true);
+   static final public AtomicLong                               defaultCacheMs  =new AtomicLong(5 * 60 * 1000);       // 5 Minuten
    // public static boolean LOG_ALL_COMMANDS=false;
    /** Beim Programmstart klären wie die Umgebung aussieht */
    static {
-      System.out.print("static: ");
+      // System.out.print("static: ");
       env.putIfAbsent("SSH_ASKPASS_REQUIRE", "prefer");
-      System.out.println("User " + USERNAME + " with " + SHELL);
+      // System.out.println("User " + USERNAME + " with " + SHELL);
    }
    /**
     * Ermittle den Benutzernamen ?
@@ -138,17 +142,16 @@ public class DoCached implements Runnable {
    static private Thread aktiviereCleaner() {
       return Thread.startVirtualThread(() -> {
          do {
-            long now=System.currentTimeMillis();
-            for (Entry<String, DoCached> e:cache.entrySet())
-               if (e.getValue().timeout < now) {
-                  System.out.println("cache(" + cache.size() + ") remove-> " + e.getKey());
+            final var now=System.currentTimeMillis();
+            for (final Entry<String, DoCached> e:cache.entrySet())
+               if (e.getValue().timeout <= now)
+                  // System.out.println("cache(" + cache.size() + ") remove-> " + e.getKey());
                   cache.remove(e.getKey());
-               }
             try {
                Thread.sleep(defaultCacheMs.get() / 60); // ca. alle 5 Sekunden
-            } catch (InterruptedException _) { /* */ }
+            } catch (final InterruptedException _) { /* */ }
          } while (!cache.isEmpty());
-         System.out.println("cache empty");
+         // System.out.println("cache empty");
          cleaner=null; // später erneut starten
       });
    }
@@ -163,38 +166,54 @@ public class DoCached implements Runnable {
     */
    public static String getFirstOr(List<String> cmds_, String or) {
       final var queue=getQueue(cmds_); // while (!queue.isFertig()) // Thread.onSpinWait();
-      return (queue.getFirst() instanceof String erg) ? erg : or;
+      return queue.getFirst() instanceof final String erg ? erg : or;
    }
    public static String getFirstOr(String... cmd) {
-      ArrayList<String> l=new ArrayList<>(List.of(cmd));
-      String or=l.removeLast();
+      final ArrayList<String> l=new ArrayList<>(List.of(cmd));
+      final var or=l.removeLast();
       return getFirstOr(l, or);
    }
-   /**
-    * @param cmds_
-    * @return
-    */
+   /// Führt den Befehl aus
+   ///
+   /// Fehler landen automatisch auf der Konsole
+   ///
+   /// @return Queue mit den Ergebnissen (asynchron möglich)
    @SuppressWarnings("resource")
-   private static ProcessQueue2<String> getQueue(List<String> cmds_) {
-      return getQueues(cmds_).out;
+   static public ProcessQueueC<String> getQueue(List<String> cmds_) {
+      return getQueues(cmds_).toErr().out;
    }
-   static public ProcessQueues2<String> getQueues(List<String> cmds) {
-      return getQueues(cmds, defaultCacheMs.get());
-   }
-   static public ProcessQueues2<String> getQueues(List<String> cmds, long ms) {
+   /// Führt den Befehl aus
+   ///
+   /// @return Die Queues für Ergebnisse und Fehler (asynchron möglich)
+   static public ProcessQueuesC<String> getQueues(List<String> cmds_) {
+      final ArrayList<String> cmds=new ArrayList<>(cmds_); // temporäre liste ohne rückwirkung
+      // FLAGS vorher verarbeiten und entfernen
+      var ms=defaultCacheMs.get();
+      final var dont_cache=cmds.remove(DONT_CACHE);
+      final var as=cmds.remove(ASYNC) ? true : cmds.remove(SYNC) ? false : defaultAsynchron.get();
+      final var refresh=cmds.remove(REFRESH);
+      for (final String s:cmds_)
+         if (s.startsWith(CACHE_MS))
+            try {
+               if (cmds.remove(s))
+                  ms=Long.parseLong(s.substring(CACHE_MS.length()).replaceAll("_", ""));
+            } catch (final NumberFormatException e) {
+               System.err.println(e.getMessage());
+            }
       final var key2=String.join(" ", cmds);
-      if (cache.containsKey(key2)) // if( im cache) return aus dem cache
+      if (!refresh && cache.containsKey(key2))
          return cache.get(key2).get2Queues();
-      System.out.println(key2);
-      final DoCached dc=new DoCached(cmds, ms);
-      cache.put(key2, dc);
+      // System.out.println(key2);
+      final DoCached dc=new DoCached(cmds, ms, as);
+      if (ms > 0 && !dont_cache)
+         cache.put(key2, dc);
       Thread.ofVirtual().start(dc);
       return dc.first;
    }
    @SuppressWarnings("resource")
-   private ProcessQueues2<String> get2Queues() {
-      System.err.println("Aus dem cache: " + String.join(" ", list));
-      final ProcessQueues2<String> next=new ProcessQueues2<>();
+   private ProcessQueuesC<String> get2Queues() {
+      // System.err.println("Aus dem cache: " + String.join(" ", list));
+      final ProcessQueuesC<String> next=new ProcessQueuesC<>();
       // warte bis der erste Thread wirklich fertig ist
       while (c1 != null)
          Thread.onSpinWait();
@@ -205,22 +224,22 @@ public class DoCached implements Runnable {
    /// @author Andreas Kielkopf
    ///
    ///         Queue die so angepasst ist, dass sie bei poll() wartet, bis Daten vom Prozess kommen
-   static public class ProcessQueue2<E> extends LinkedBlockingQueue<E> {
+   static public class ProcessQueueC<E> extends LinkedBlockingQueue<E> {
       private static final long serialVersionUID=-2442288599254555538L;
-      AtomicBoolean             alive           =new AtomicBoolean(true);
+      private final AtomicBoolean     alive           =new AtomicBoolean(true);
       private boolean isFertig() {
          return isEmpty() && !alive.get();
       }
-      /**
-       * @return
-       */
+      /// @return First line of result
       public E getFirst() {
-         while (alive.get() && isEmpty())
+         while (isEmpty() && alive.get())
             Thread.onSpinWait();
          return peek();
       }
-      void setFertig() {
+      /// @return für Methodchaining
+      private ProcessQueueC<E> setFertig() {
          alive.set(false);
+         return this;
       }
       /// Angepasst, so dass poll() nie schiefgeht solange der Prozess noch läuft.
       ///
@@ -237,6 +256,14 @@ public class DoCached implements Runnable {
             } catch (final InterruptedException _) { /* */ }
          return null;
       }
+      /// warte bis der Befehl abgearbeitet ist
+      ///
+      /// @return für Methodchaining
+      public ProcessQueueC<E> waitFor() {
+         while (!isFertig())
+            Thread.onSpinWait();
+         return this;
+      }
    }
 
    /**
@@ -247,70 +274,66 @@ public class DoCached implements Runnable {
     * @param <E>
     *           typischerweise komplette Zeilen
     */
-   static public class ProcessQueues2<E> implements AutoCloseable {
-      public final ProcessQueue2<E> out;
-      public final ProcessQueue2<E> err;
-      public ProcessQueues2(ProcessQueue2<E> output, ProcessQueue2<E> error) {
+   static public class ProcessQueuesC<E> implements AutoCloseable {
+      public final ProcessQueueC<E> out;
+      public final ProcessQueueC<E> err;
+      private boolean               asynchron;
+      private ProcessQueuesC(ProcessQueueC<E> output, ProcessQueueC<E> error) {
          out=output;
          err=error;
+         asynchron=defaultAsynchron.get();
       }
-      /**
-       *
-       */
-      public ProcessQueues2() {
-         this(new ProcessQueue2<>(), new ProcessQueue2<>());
+      private ProcessQueuesC() {
+         this(new ProcessQueueC<>(), new ProcessQueueC<>());
       }
-      ProcessQueues2<E> setFertig() {
+      /// @return für Methodchaining
+      private ProcessQueuesC<E> setFertig() {
          out.setFertig();
          err.setFertig();
          return this;
       }
-      // public void printErr() {
-      // Thread.startVirtualThread(() -> {
-      // while (err.poll() instanceof final E e)
-      // System.err.println(e);
-      // });
-      // }
       @Override
       public void close() throws Exception {
          Thread.sleep(199);
          setFertig();
       }
-      public ProcessQueues2<E> toOut() {
+      /// Gibt das Ergebnis auf der Konsole aus
+      ///
+      /// @return für Methodchaining
+      public ProcessQueuesC<E> toOut() {
          Thread.startVirtualThread(() -> {
-            while (out.poll() instanceof String line)
+            while (out.poll() instanceof final String line)
                System.out.println(line);
          });
          return this;
-      };
-      public ProcessQueues2<E> toErr() {
+      }
+      /// Gibt die Fehler auf der Konsole aus
+      ///
+      /// @return für Methodchaining
+      public ProcessQueuesC<E> toErr() {
          Thread.startVirtualThread(() -> {
-            while (err.poll() instanceof String line)
+            while (err.poll() instanceof final String line)
                System.err.println(line);
          });
          return this;
       }
-      /**
-       * 
-       */
-      public void waitFor() {
-         while (!out.isFertig())
-            Thread.onSpinWait();
-      };
+      /// warte bis der Befehl abgearbeitet ist
+      ///
+      /// @return für Methodchaining
+      public ProcessQueuesC<E> waitFor() {
+         out.waitFor();
+         return this;
+      }
    }
-   /**
-    * @param string
-    */
+   /// Führe den Befehl aus, Optionen können als String übergeben werden
    public static void doCmd(String... string) {
       doCmd(List.of(string));
    }
-   /**
-    * @param of
-    */
+   /// Führe den Befehl aus, Optionen können als List<String> übergeben werden
    @SuppressWarnings("resource")
-   private static void doCmd(List<String> list) { // System.out.println(list);
-      ProcessQueues2<String> qs=getQueues(list).toOut().toErr();// .waitFor();
-      if (!asynchron.get())
+   public static void doCmd(List<String> list) { // System.out.println(list);
+      final var qs=getQueues(list).toOut().toErr();// .waitFor();
+      if (!qs.asynchron)
          qs.waitFor();
    }
 }
