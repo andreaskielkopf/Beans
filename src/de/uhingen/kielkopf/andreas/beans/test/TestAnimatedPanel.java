@@ -1,6 +1,3 @@
-/**
- *
- */
 package de.uhingen.kielkopf.andreas.beans.test;
 
 import java.awt.BorderLayout;
@@ -10,6 +7,7 @@ import java.awt.GridLayout;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.NavigableSet;
+import java.util.concurrent.locks.LockSupport;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -62,9 +60,8 @@ public class TestAnimatedPanel {
    private TestAnimatedPanel() {
       initialize();
       getAnimatedPanel().getDelegate().setBackground(Color.YELLOW.brighter());
-      Thread.startVirtualThread(() -> {
+      Thread.ofVirtual().name(getClass().getSimpleName() + " Insert").start(() -> {
          try {
-            Thread.currentThread().setName(getClass().getSimpleName() + " Insert");
             final var sr=SecureRandom.getInstanceStrong();
             for (var i=0; i < 1000; i++) {
                final var j=i;
@@ -74,15 +71,14 @@ public class TestAnimatedPanel {
                   getAnimatedPanel_2().add(new ColorInteger(sr.nextInt() % 400 + j));
                   getAnimatedPanel_3().add(new ColorInteger(sr.nextInt() % 1000 + j));
                });
-               Thread.sleep(i / 5 + 10);
+               LockSupport.parkNanos(200_000 * i + 10_000_000);
             }
-         } catch (InterruptedException | NoSuchAlgorithmException e) {
+         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
          }
       });
-      Thread.startVirtualThread(() -> {
+      Thread.ofVirtual().name(getClass().getSimpleName() + " Delete").start(() -> {
          try {
-            Thread.currentThread().setName(getClass().getSimpleName() + " Delete");
             final var sr=SecureRandom.getInstanceStrong();
             for (var i=0; i < 5000; i++) {
                SwingUtilities.invokeLater(() -> {
@@ -94,9 +90,9 @@ public class TestAnimatedPanel {
                      for (final ColorInteger colorInteger:w)
                         getAnimatedPanel_1().delete(colorInteger);
                });
-               Thread.sleep(i / 5 + 25);
+               LockSupport.parkNanos(200_000 * i + 25_000_000);
             }
-         } catch (InterruptedException | NoSuchAlgorithmException e) {
+         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
          }
       });
@@ -174,6 +170,8 @@ public class TestAnimatedPanel {
          animatedPanel_2=new SelectableAnimatedPanel<>();
          animatedPanel_2.setMsDelete(60000);
          animatedPanel_2.setMsAnimation(50);
+         animatedPanel_2.outsideBackground=Color.LIGHT_GRAY;
+         animatedPanel_2.outsideForeground=Color.DARK_GRAY;
       }
       return animatedPanel_2;
    }

@@ -1,6 +1,3 @@
-/**
- *
- */
 package de.uhingen.kielkopf.andreas.beans.gui;
 
 import java.awt.Color;
@@ -17,11 +14,14 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.LockSupport;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
+import javax.swing.border.EmptyBorder;
 
 /**
  * Ein JPanel, das eine Reihe von Objekten ohne Layoutmanager darstellt.
@@ -34,32 +34,36 @@ import javax.swing.border.BevelBorder;
  *
  */
 public class AnimatedPanel<T> extends JPanel {
-   private static final long                                 serialVersionUID=6254515647851855442L;
+   private static final long                         serialVersionUID =6254515647851855442L;
    /// Die Animation soll nur laufen wenn nötig, und nur einmalig
-   private final AtomicBoolean                               animationRunning=new AtomicBoolean(false);
+   private final AtomicBoolean                       animationRunning =new AtomicBoolean(false);
    /// Liste der zu zeichnenden Objekte mit ihrer Position als int
-   final ConcurrentSkipListMap<T, Pair<Long, Point>>         allItems        =new ConcurrentSkipListMap<>();
+   final ConcurrentSkipListMap<T, Pair<Long, Point>> allItems         =new ConcurrentSkipListMap<>();
    /// JLabel zum eigentlichen Zeichnen
-   private JLabel                                            delegate;
-   private final LinkedBlockingQueue<Pair<Long, T>>          deleteQueue     =new LinkedBlockingQueue<>();
-   ConcurrentSkipListSet<T>                                  selectedItems   =null;
-   private final AtomicBoolean                               deletionRunning =new AtomicBoolean(false);
-   private final int                                         h               =500;
-   final int                                                 hgap            =5;
+   private JLabel                                    delegate;
+   private final LinkedBlockingQueue<Pair<Long, T>>  deleteQueue      =new LinkedBlockingQueue<>();
+   ConcurrentSkipListSet<T>                          selectedItems    =null;
+   private final AtomicBoolean                       deletionRunning  =new AtomicBoolean(false);
+   private final int                                 h                =500;
+   final int                                         hgap             =5;                            // <->
    /// Währed der Animation zum löschen
-   private final ConcurrentSkipListMap<T, Pair<Long, Point>> deletedItems    =new ConcurrentSkipListMap<>();
-   int                                                       rowHeight       =100;
-   private int                                               msAnimation     =25;
-   private int                                               msDelete        =25000;
+   final ConcurrentSkipListMap<T, Pair<Long, Point>> deletedItems     =new ConcurrentSkipListMap<>();
+   int                                               rowHeight        =100;
+   private AtomicLong                                msAnimation      =new AtomicLong(25);
+   private int                                       msDelete         =25000;
    /// JLabel zum Berechnen der Größe
-   private JLabel                                            shadow;
-   final int                                                 vgap            =5;
-   private int                                               vHeight         =h;
-   private final int                                         w               =500;
+   private JLabel                                    shadow;
+   final int                                         vgap             =5;
+   private int                                       vHeight          =h;
+   private final int                                 w                =500;
    /// Bisherige Breite
-   int                                                       oWidth          =w;
+   int                                               oWidth           =w;
    /// Breite des anzeigbaren Bereichs
-   int                                                       vWidth          =w;
+   int                                               vWidth           =w;
+   private JLabel                                    lblNewLabel;
+   // public Boolean wrap_X =false;
+   public Color                                      outsideBackground=null;                         // Color.lightGray;
+   public Color                                      outsideForeground=null;                         // Color.darkGray;
    /**
     * Create the panel.
     */
@@ -77,25 +81,49 @@ public class AnimatedPanel<T> extends JPanel {
     *
     */
    class Pair<T1, T2> {
-      @SuppressWarnings("null") private T1 a=null;
-      @SuppressWarnings("null") private T2 b=null;
+      @SuppressWarnings("null") private T1 a=(T1) null;
+      @SuppressWarnings("null") private T2 b=(T2) null;
+      /**
+       * @param a_
+       *           1.Objekt
+       * @param b_
+       *           2.Objekt
+       */
       Pair(T1 a_, T2 b_) {
          setA(a_);
          setB(b_);
       }
+      /**
+       * @return
+       */
       T1 getA() {
          return a;
       }
+      /**
+       * @return
+       */
       T2 getB() {
          return b;
       }
+      /**
+       * @param a_
+       */
       void setA(T1 a_) {
          if (a_ instanceof final T1 t1)
             a=t1;
       }
+      /**
+       * @param b_
+       */
       void setB(T2 b_) {
          if (b_ instanceof final T2 t2)
             b=t2;
+      }
+      @Override
+      public String toString() {
+         StringBuilder sb=new StringBuilder();
+         sb.append(a).append(" ").append(b);
+         return sb.toString();
       }
    }
 
@@ -120,94 +148,129 @@ public class AnimatedPanel<T> extends JPanel {
     */
    public interface hasColors {
       /**
-       * @return
+       * @param isSelected
+       *           boolean
+       * @return Color für Schrift
        */
       Color getForeground(boolean isSelected);
       /**
-       * @return
+       * @param isSelected
+       *           boolean
+       * @return Color für Hintergrund
        */
       Color getBackground(boolean isSelected);
    }
-   /**
-    * animiere die Labels in einem virtuellen Thread.
-    *
-    * Aber nur einen Thread starten, und nur enden, wenn alles am Ziel ist
-    */
+   /// animiere die Labels in einem virtuellen Thread.
+   ///
+   /// Aber nur einen Thread starten, und nur enden, wenn alles am Ziel ist
+   /// * Entry<T, Pair<Long, Point>>
+   /// * T=Objekt das bewegt werden soll
+   /// * Long beschreibt die Zielposition
+   /// * Point(x,y) ist die aktuelle Position
    private void animate() {
       if (animationRunning.compareAndSet(false, true))
-         Thread.startVirtualThread(() -> {
-            try {
-               Thread.currentThread().setName(getClass().getSimpleName() + " Animate");
-               var count=0;
-               do {
-                  Thread.sleep(getMsAnimation());
-                  count=allItems.size() + deletedItems.size();
-                  for (final Entry<T, Pair<Long, Point>> e:allItems.entrySet())
-                     if (e.getValue() instanceof final Pair<Long, Point> value)
-                        if (!move(value))
-                           count--;
-                  for (final Entry<T, Pair<Long, Point>> e:deletedItems.entrySet())
-                     if (e.getValue() instanceof final Pair<Long, Point> value)
-                        if (!move(value))
-                           count--;
-                  repaint(100);
-               } while (count > 0);
-            } catch (final InterruptedException e1) {
-               System.err.println(e1);
-            }
+         Thread.ofVirtual().name(getClass().getSimpleName() + " Animate").start(() -> {
+            var count=0;// System.out.println("Animate started");
+            do {
+               LockSupport.parkNanos(msAnimation.get() * 1_000_000);
+               count=0;
+               for (final Entry<T, Pair<Long, Point>> e:allItems.entrySet())
+                  if (e.getValue() instanceof final Pair<Long, Point> value && move(value))
+                     count++;
+               for (final Entry<T, Pair<Long, Point>> e:deletedItems.entrySet())
+                  if (e.getValue() instanceof final Pair<Long, Point> value && move(value))
+                     count++;
+               if (count > 0)
+                  repaint(getMsAnimation());
+            } while (count > 0); // System.out.println("Animate stopped");
             animationRunning.set(false); // Jetzt darf ein neuer Thread gestartet werden
-            repaint(1000);
          });
    }
-   private long calculate(JLabel sdw2, long lpos_, final Entry<T, Pair<Long, Point>> e) {
-      var lp=lpos_;
+   /// berechne die Zielposition als long (aber nur ween sich etwas an den Daten geändert hat)
+   ///
+   /// * Entry<T, Pair<Long, Point>>
+   /// * T=Objekt das bewegt werden soll
+   /// * Long beschreibt die Zielposition
+   /// * Point(x,y) ist die aktuelle Position
+   private long calculate(JLabel sdw2, long pos_start, final Entry<T, Pair<Long, Point>> e) {
+      var pos=pos_start;
       if (e.getKey() instanceof final T key) {
-         sdw2.setText(key instanceof final hasName hn ? hn.getName() : key.toString());
+         // probeweise den Text setzen
+         sdw2.setText(key instanceof final hasName k ? k.getName() : key.toString());
+         // um die Breite zu erfahren
          final var lWidth=sdw2.getPreferredSize().width;
-         final var r=(int) (lp % vWidth);
-         if (r + lWidth >= vWidth) {// Umbruch noch in diesem Label
-            lp+=vWidth - r; // an den Anfang der nächsten Zeile
-            e.getValue().setA(lp);
-            lp+=lWidth + hgap;
+         final var rest=(int) (pos % vWidth);
+         if (rest + lWidth >= vWidth) {// Umbruch noch in diesem Label
+            pos+=vWidth - rest; // an den Anfang der nächsten Zeile
+            e.getValue().setA(pos);
+            pos+=lWidth + hgap;
          } else {
-            e.getValue().setA(lp);
-            lp=r + lWidth >= vWidth ? // Umbruch danach
-                     vWidth * (lp / vWidth + 1) : //
-                     lp + lWidth + hgap;
+            e.getValue().setA(pos);
+            pos=rest + lWidth >= vWidth ? // Umbruch danach
+                     vWidth * (pos / vWidth + 1) : //
+                     pos + lWidth + hgap;
          }
       }
-      return lp;
+      return pos;
    }
    /**
    *
    */
    private void init() {
       setPreferredSize(new Dimension(w, h));
+      add(getLblNewLabel());
    }
    /**
     * Berechne die nächste animierte Position die gewünscht ist, und bewege das Objekt auch dorthin
     *
     * @param value
     * @return wurde es bewegt ?
+    *
+    *         /// * Long beschreibt die Zielposition /// * Point(x,y) ist die aktuelle Position
     */
    private boolean move(Pair<Long, Point> value) {
-      final var lpos=value.getA();
-      var changed=false;
-      var x=value.getB().x;
-      final var dx=speed((int) (lpos % vWidth) + hgap, x);
-      if (dx != 0) {
-         x+=dx;
-         changed=true;
-      }
-      var y=value.getB().y;
-      final var dy=speed((int) (lpos / vWidth * rowHeight + vgap + 1), y);
-      if (dy != 0) {
-         y+=dy;
-         changed=true;
-      }
-      if (changed)
-         value.getB().setLocation(x, y);
-      return changed;
+      long lpos=value.getA();
+      final var p=value.getB();
+      var spalte=(int) (lpos % vWidth + hgap);
+      var ax=spalte - p.x;
+      var zeile=(int) (lpos / vWidth * rowHeight + vgap);
+      var ay=zeile - p.y;
+      if (ax == 0 && ay == 0) // unbewegt
+         return false;
+      var vwh=vWidth * 7 / 16;// Abkürzung möglich?
+      if (ax > vwh)
+         ax-=vWidth;
+      else
+         if (ax < -vwh)
+            ax+=vWidth;
+      if (speed2(ax, ay) instanceof Point p2)
+         p.translate(p2.x, p2.y);
+      if (p.x < 0)
+         p.translate(vWidth, 0);
+      else
+         if (p.x > vWidth)
+            p.translate(-vWidth, 0);
+      return true;
+   }
+   /**
+    * Berechne eine akzeptable Bewegungsrate
+    *
+    * @param x
+    * @param y
+    * @return Point
+    */
+   private static Point speed2(int x, int y) {
+      var px=x >= 0;
+      var py=y >= 0;
+      var ax=px ? x : -x;
+      var ay=py ? y : -y;
+      var s=ax + ay;
+      if (s == 0)
+         return new Point(0, 0);
+      var e=32 - Integer.numberOfLeadingZeros(s);
+      var ey=(int) ((ay + ay + 1L) * e / (s + s));
+      var ex=e - ey;
+      return new Point(px ? ex : -ex, py ? ey : -ey);
    }
    /**
     *
@@ -230,8 +293,20 @@ public class AnimatedPanel<T> extends JPanel {
          final var x=point.x;
          final var y=point.y;
          final var di=d.getPreferredSize();
-         if (x >= 0 && x + di.width <= vWidth && y >= 0 && y <= vHeight)
-            SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
+         if (y >= 0 && y <= vHeight) {
+            if (x >= hgap && x + di.width <= hgap + vWidth) // ganz im Fenster
+               SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
+            else {
+               if (outsideBackground instanceof Color bg)
+                  d.setBackground(bg);
+               if (outsideForeground instanceof Color fg)
+                  d.setForeground(fg);
+               if (x + di.width > hgap + vWidth && x < vWidth) // rechts aussen
+                  SwingUtilities.paintComponent(g2d, d, this, x, y, di.width, di.height);
+               if (x - vWidth + di.width >= hgap)// und linksaussen (geht gleichzeitig)
+                  SwingUtilities.paintComponent(g2d, d, this, x - vWidth, y, di.width, di.height);
+            }
+         }
       }
    }
    /**
@@ -242,7 +317,7 @@ public class AnimatedPanel<T> extends JPanel {
     *
     */
    private void recalculateChildren() {
-      var lpos=0L;
+      Long lpos=0L;
       if (getShadow() instanceof final JLabel sdw)
          synchronized (sdw) {
             for (final Entry<T, Pair<Long, Point>> e:allItems.entrySet())
@@ -257,16 +332,19 @@ public class AnimatedPanel<T> extends JPanel {
     *           Element to add
     */
    public void add(T t) {
-      final var change=!allItems.containsKey(t);
-      if (change && new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair) {
-         allItems.put(t, pair);
-         invalidate();
-      }
+      if (allItems.get(t) instanceof AnimatedPanel<T>.Pair<Long, Point> e) // Position beibehalten, aber T austauschen
+         allItems.put(t, e);
+      else
+         if (new Pair<>(1L, new Point(hgap + vWidth, vgap)) instanceof final Pair<Long, Point> pair) {
+            allItems.put(t, pair);
+            invalidate();
+         }
    }
    public void addAll(Collection<T> values) {
       var changed=false;
       for (final T t:values)
-         if (!allItems.containsKey(t) && new Pair<>(1L, new Point(10, 10)) instanceof final Pair<Long, Point> pair) {
+         if (!allItems.containsKey(t)
+                  && new Pair<>(1L, new Point(hgap + vWidth, vgap)) instanceof final Pair<Long, Point> pair) {
             allItems.put(t, pair);
             changed=true;
          }
@@ -286,14 +364,13 @@ public class AnimatedPanel<T> extends JPanel {
          deleteQueue.offer(new Pair<>(System.currentTimeMillis() + getMsDelete(), t));
          invalidate();
          if (deletionRunning.compareAndSet(false, true))
-            Thread.startVirtualThread(() -> {
-               Thread.currentThread().setName(getClass().getSimpleName() + " Deleter");
+            Thread.ofVirtual().name(getClass().getSimpleName() + " Deleter").start(() -> {
                try {
                   while (!deleteQueue.isEmpty()) {
                      final var i=deleteQueue.take();
                      final var a=i.a - System.currentTimeMillis();
                      if (a > 0)
-                        Thread.sleep(a);
+                        LockSupport.parkNanos(a * 1_000_000);
                      if (deletedItems.containsKey(i.b))
                         deletedItems.remove(i.b);
                      if (selectedItems != null && selectedItems.contains(i.b))
@@ -305,6 +382,10 @@ public class AnimatedPanel<T> extends JPanel {
             });
       }
    }
+   public void deleteAll() {
+      for (T t:getAll())
+         delete(t);
+   }
    /**
     * Dieses JLabel wird zum Zeichnen verwendet
     *
@@ -315,6 +396,7 @@ public class AnimatedPanel<T> extends JPanel {
          delegate=new JLabel("Delegate");
          delegate.setBorder(new BevelBorder(BevelBorder.RAISED, null, null, null, null));
          delegate.setFont(new Font("Noto Sans", Font.PLAIN, 15));
+         delegate.setBorder(new EmptyBorder(0, 5, 0, 5));
          delegate.setOpaque(true);
       }
       return delegate;
@@ -322,8 +404,8 @@ public class AnimatedPanel<T> extends JPanel {
    /**
     * @return msAnimation
     */
-   public int getMsAnimation() {
-      return msAnimation;
+   public long getMsAnimation() {
+      return msAnimation.get();
    }
    /**
     * @return msDelet
@@ -349,7 +431,7 @@ public class AnimatedPanel<T> extends JPanel {
     *           Zeit für jeden Bewegungsschritt
     */
    public void setMsAnimation(int msAnimation_) {
-      msAnimation=msAnimation_;
+      msAnimation.set(msAnimation_);
    }
    /**
     * @param msDelete_
@@ -373,7 +455,7 @@ public class AnimatedPanel<T> extends JPanel {
          vHeight=getHeight() - vgap - vgap + j.top - j.bottom;
          final var d=getDelegate();
          final var di=d.getPreferredSize();
-         rowHeight=di.height + hgap;
+         rowHeight=di.height + vgap;
          for (final Entry<T, Pair<Long, Point>> e:allItems.entrySet())
             paintChild(g2d, e, false); // aktive Elemente
          for (final Entry<T, Pair<Long, Point>> e:deletedItems.entrySet())
@@ -381,24 +463,21 @@ public class AnimatedPanel<T> extends JPanel {
       }
       // super.paintChildren(g);
    }
-   /**
-    * Berechne eine akzeptable Bewegungsrate
-    *
-    * @param a
-    * @param b
-    * @return
-    */
-   private static int speed(int a, int b) {
-      if (a == b)
-         return 0;
-      final var c=a > b;
-      final var d=c ? a - b : b - a;
-      final var e=32 - Integer.numberOfLeadingZeros(d);
-      return d < 4 ? c ? 1 : -1 : c ? e * 2 : -e * 2; // Schritte je nach Abstand
-   }
    @Override
    public void invalidate() {
       oWidth=0; // Ändert die oWidth um ein recalculateChildren() beim neuzeichnen zu erzwingen
       super.invalidate();
+   }
+   /**
+    * @author Andreas Kielkopf
+    *
+    */
+   public interface AnimatedObject extends hasColors, hasName {}
+   private JLabel getLblNewLabel() {
+      if (lblNewLabel == null) {
+         lblNewLabel=new JLabel("New label");
+         lblNewLabel.setBorder(new EmptyBorder(0, 5, 0, 5));
+      }
+      return lblNewLabel;
    }
 }
